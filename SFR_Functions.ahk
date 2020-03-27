@@ -1,4 +1,4 @@
-﻿#Warn
+#Warn
 #NoEnv
 SetWorkingDir ,% A_ScriptDir
 ; ==================================================================================================================================
@@ -64,7 +64,7 @@ SelectFolderEx(StartingFolder := "", Prompt := "", OwnerHwnd := 0, OkBtnLabel :=
 }
 ; ==================================================================================================================================
 
-UpdateLVg(){ ; Updates the ListView for the game directory
+UpdateLVg(SelectedRow:=-1){ ; Updates the ListView for the game directory
 	global settings
 	While (settings.gCurrentFilePaths.Count()) { ; delete all the current file paths
 		for l in settings.gCurrentFilePaths
@@ -79,6 +79,7 @@ UpdateLVg(){ ; Updates the ListView for the game directory
 		LV_Add("", A_LoopFileNAme)
 		settings.gCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
 	}
+	LV_Modify(SelectedRow, "+Select")
 }
 ; ==================================================================================================================================
 
