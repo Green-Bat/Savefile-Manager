@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	0.2 (Last updated 27/03/2020)
+*	1.0 (Last updated 27/03/2020)
 */
 #Warn
 #NoEnv
