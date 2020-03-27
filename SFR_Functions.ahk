@@ -74,7 +74,7 @@ UpdateLVg(SelectedRow:=-1){ ; Updates the ListView for the game directory
 	Gui, ListView, LVg
 	LV_Delete()
 	; Refill the ListView with the files of the current directory and store their full paths
-	Loop, Files, % settings.gSaveDir "\*.sgd", R
+	Loop, Files, % settings.gSaveDir "\*.sgd"
 	{
 		LV_Add("", A_LoopFileNAme)
 		settings.gCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
