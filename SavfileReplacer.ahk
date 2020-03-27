@@ -1,11 +1,11 @@
-﻿#Include SFR_Functions.ahk
+#Include SFR_Functions.ahk
 #include JSON.ahk
 
 /**
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.0 (Last updated 27/03/2020)
+*	1.1 (Last updated 27/03/2020)
 */
 #Warn
 #NoEnv
@@ -42,24 +42,25 @@ if (settings.SavedDirs.Count()){
 GuiControl, Choose, c_Dirs, % settings.LastChosenGame ; Make the current choice in the DropDown be whatever the user chose last.
 Gui, Main:Add, Text, xm yp+70 w450 r2 vptext, % "Current personal directory: " settings.pSaveDir
 Gui, Main:Add, Text, xm yp+30 w450 r2 vgtext, % "Current game directory: " settings.gSaveDir
-Gui, Main:Add, ListView, r18 xm yp+40 w220 -Hdr -Multi vLVp, Personal Files
+Gui, Main:Add, ListView, r18 xm yp+40 w220 -Hdr -Multi  +LV0x400 +LV0x4000 vLVp, Personal Files
 ; Populate the ListView with the files in the currently chosen personal/game directories, if they exist
 if (settings.pSaveDir){
-	Loop, Files, % settings.pSaveDir "\*.sgd", R ; Get all files in the directory, including subfolders
+	Loop, Files, % settings.pSaveDir "\*.sgd", R  ; Get all files in the directory, including subfolders
 	{
 		LV_Add("", A_LoopFileNAme)
 		settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath ; Save the file paths and use their names as keys
 	}
 }
 LV_ModifyCol(1, 195)
-Gui, Main:Add, ListView, r15 xp+250 yp w200 -Hdr -Multi vLVg, Game Files
-if (settings.pSaveDir){
-	Loop, Files, % settings.gSaveDir "\*.sgd", R
+Gui, Main:Add, ListView, r15 xp+250 yp w200 -Hdr -Multi +LV0x400 +LV0x4000 vLVg, Game Files
+if (settings.gSaveDir){
+	Loop, Files, % settings.gSaveDir "\*.sgd"
 	{
 		LV_Add("", A_LoopFileNAme)
 		settings.gCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
 	}
 }
+LV_ModifyCol(1, 195)
 Gui, Font, s16
 Gui, Main:Add, Button, xp-30 yp+60 w30 h30 gcreate_backup, <=
 Gui, Main:Add, Button, xp yp+60 wp hp greplace, =>
@@ -158,11 +159,11 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 
 replace: ; Replace the currently highlighted file in the game file ListView with the currently highlighted file in the personal file ListView
 	Gui, ListView, LVg
-	if !(LV_GetNext()) {
+	if !(SelectedRow := LV_GetNext()) {
 		MsgBox, 48, Savefile Replacer, Select a game file to replace
 		return
 	}
-	LV_GetText(FileToReplace, LV_GetNext())
+	LV_GetText(FileToReplace, SelectedRow)
 	Gui, ListView, LVp
 	if !(LV_GetNext()) {
 		MsgBox, 48, Savefile Replacer, Select a personal file to replace with
@@ -175,7 +176,7 @@ replace: ; Replace the currently highlighted file in the game file ListView with
 	;**************************************************************************************************************************************
 	else ; Creates a copy of the personal file, renames it and overwrites the selected game file then updates the game files ListView
 		FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths[FileToReplace], 1
-	UpdateLVg()
+	UpdateLVg(SelectedRow)
 	return
 ;**************************************************************************************************************************************************************************************
 
