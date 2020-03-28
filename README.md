@@ -3,7 +3,7 @@ A program to help manage savefiles (backup, replace), specifically made for the 
 
 ## How to Use:
 
-Click `Add a game`, which will then prompt you to choose a folder which will be your own personal folder that stores backedup savefiles, you will then choose the folder that conatins the game's savefiles. Then you choose the name you want it to be saved as.
+Click `Add a game`, which will then prompt you to choose a folder which will be your own personal folder that stores backedup savefiles, you will then choose the folder that contains the game's savefiles. Then you choose the name you want it to be saved as.
 
 `Remove current game` will remove the game you currently have selected.
 
