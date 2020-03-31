@@ -5,13 +5,14 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.1 (Last updated 27/03/2020)
+*	1.2 (Last updated 30/03/2020)
 */
 #Warn
 #NoEnv
 #NoTrayIcon
-SetWorkingDir, % A_ScriptDir
+ListLines Off
 SetBatchLines, -1
+SetWorkingDir, % A_ScriptDir
 
 settingsfile := FileOpen(A_ScriptDir "\settings.JSON" , "r")
 if !(IsObject(settingsfile)){
@@ -68,7 +69,7 @@ Gui, Font
 Gui, Main:Show, W470 H470
 return
 
-;***********************************************************************************| G-LABELS |*****************************************************************************************************
+;*************************************************************************| G-LABELS |**************************************************************************************************
 
 add_game: ; Adds a game and saves it
 	; Let user choose the personal directory, if they cancel the dialog then return
@@ -126,6 +127,7 @@ remove_game: ; Deletes the currently selected game in the DropDown
 ;**************************************************************************************************************************************************************************************
 
 create_backup: ; Create a backup from the currently highlighted file in the game files ListView
+	Gui +OwnDialogs
 	Gui, ListView, LVg
 	if !(LV_GetNext()) { ; Return if nothing is highlighted
 		MsgBox, 48, Savefile Replacer, Select a game file to backup
@@ -158,6 +160,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 ;**************************************************************************************************************************************************************************************
 
 replace: ; Replace the currently highlighted file in the game file ListView with the currently highlighted file in the personal file ListView
+	Gui +OwnDialogs
 	Gui, ListView, LVg
 	if !(SelectedRow := LV_GetNext()) {
 		MsgBox, 48, Savefile Replacer, Select a game file to replace
