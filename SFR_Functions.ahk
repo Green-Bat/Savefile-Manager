@@ -96,6 +96,9 @@ UpdateLVp(){ ; Updates the ListView for the personal directory
 		LV_Add("", A_LoopFileNAme)
 		settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
 	}
+	SetTimer, CheckFiles, Off
+	Sleep, 1000
+	SetTimer, CheckFiles, On
 }
 ; ==================================================================================================================================
 
@@ -118,11 +121,11 @@ CheckFiles(){
 	gOldTime := pOldTime := A_Now ; Get the current time to compare it to the last modified time of the folders
 	Gui, Main:Default ; Ensures the corrct gui window will be acted on when the update functions are called
 	FileGetTime, gNewTime, % settings.gSaveDir
-	if ((gNewTime -= gOldTime, DHMS) > -2){
+	if ((gNewTime -= gOldTime, DHMS) > -3){
 		UpdateLVg()
 	}
 	FileGetTime, pNewTime, % settings.pSaveDir
-	if ((pNewTime -= pOldTime, DHMS) > -2){
+	if ((pNewTime -= pOldTime, DHMS) > -3){
 		UpdateLVp()
 	}
 }
@@ -130,6 +133,7 @@ CheckFiles(){
 
 SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as parameters
 	global settings
+	Gui, Main:+OwnDialogs
 	loop {
 		InputBox, name, Savefile Replacer, Name the directory,, 200, 150
 		for k in settings.SavedDirs { ; check if the name is already saved and warns the user (not case sensitive)
