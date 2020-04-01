@@ -64,75 +64,94 @@ SelectFolderEx(StartingFolder := "", Prompt := "", OwnerHwnd := 0, OkBtnLabel :=
 }
 ; ==================================================================================================================================
 
-UpdateLVg(SelectedRow:=-1){ ; Updates the ListView for the game directory
-	global settings
+UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 	While (settings.gCurrentFilePaths.Count()) { ; delete all the current file paths
 		for l in settings.gCurrentFilePaths
 			settings.gCurrentFilePaths.Delete(l)
 	}
-	; Empty the ListView
-	Gui, ListView, LVg
-	LV_Delete()
-	; Refill the ListView with the files of the current directory and store their full paths
-	Loop, Files, % settings.gSaveDir "\*.sgd"
+	; Empty the TreeView
+	Gui, TreeView, TVg
+	TV_Delete()
+	; Refill the TreeView with the files of the current directory and store their full paths
+	GuiControl, -Redraw, TVg ; for performance purposes
+	Loop, Files, % settings.gSaveDir "\*.sgd"  ; Get all files in the directory, including subfolders
 	{
-		LV_Add("", A_LoopFileNAme)
-		settings.gCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
+		AddedID := TV_Add(A_LoopFileName,, "Icon1")
+		settings.gCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath ; Save the file paths and use their names as keys
+		if (A_LoopFileName == FileToReplace) ; Get id of the game save to have to be selected after the TreeView is drawn
+			IDToSelect := AddedID
 	}
-	LV_Modify(SelectedRow, "+Select")
+	GuiControl, +Redraw, TVg
+	if (FileToReplace)
+		TV_Modify(IDToSelect, "+Select")
 }
 ; ==================================================================================================================================
 
-UpdateLVp(){ ; Updates the ListView for the personal directory
-	global settings
+UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
+	IDToSelect := ""
 	While (settings.pCurrentFilePaths.Count()) {
 		for l in settings.pCurrentFilePaths
 			settings.pCurrentFilePaths.Delete(l)
 	}
-	Gui, ListView, LVp
-	LV_Delete()
-	Loop, Files, % settings.pSaveDir "\*.sgd", R
+	Gui, TreeView, TVp
+	TV_Delete()
+	GuiControl, -Redraw, TVp
+	Loop, Files, % settings.pSaveDir "\*.*", D  ; Get all sub-folders in the directory
 	{
-		LV_Add("", A_LoopFileNAme)
+		Parent := TV_Add(A_LoopFileName,, "Icon2")
+		settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
+		Loop, Files, % A_LoopFileLongPath "\*.sgd" 
+		{
+			id := TV_Add(A_LoopFileName, Parent, "Icon1")
+			if (A_LoopFileName == BackupName . ".sgd")
+				IDToSelect := id
+			settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath ; Save the file paths and use their names as keys
+		}
+	}
+	Loop, Files, % settings.pSaveDir "\*.sgd"
+	{
+		id := TV_Add(A_LoopFileName,, "Icon1")
+		if (A_LoopFileName == BackupName . ".sgd" && !IDToSelect)
+			IDToSelect := id
 		settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
 	}
-	SetTimer, CheckFiles, Off
-	Sleep, 1000
-	SetTimer, CheckFiles, On
+	GuiControl, +Redraw, TVp
+	if (BackupName){
+		TV_Modify(IDToSelect, "+Select +VisFirst" )
+		SetTimer, CheckFiles, Off
+		Sleep, 1000
+		SetTimer, CheckFiles, On
+	}
 }
 ; ==================================================================================================================================
 
 UpdateDirs(key){ ; Function that is called when the user chooses an option in the saved games DropDownList
 	; Takes the choice the user made as a parameter to use to retrieve the path to the saved directories
-	local
-	global settings
 	settings.gSaveDir := settings.SavedDirs[key][1]
 	settings.pSaveDir := settings.SavedDirs[key][2]
-	; Update relevant text then update ListViews
+	; Update relevant text then update TreeViews
 	GuiControl, Text, ptext, % "Current personal directory: " settings.pSaveDir
 	GuiControl, Text, gtext, % "Current game directory: " settings.gSaveDir
-	UpdateLVg()
-	UpdateLVp()
+	UpdateTVg()
+	UpdateTVp()
 }
 ; ==================================================================================================================================
 
 CheckFiles(){
-	global settings
 	gOldTime := pOldTime := A_Now ; Get the current time to compare it to the last modified time of the folders
 	Gui, Main:Default ; Ensures the corrct gui window will be acted on when the update functions are called
 	FileGetTime, gNewTime, % settings.gSaveDir
-	if ((gNewTime -= gOldTime, DHMS) > -3){
-		UpdateLVg()
+	if ((gNewTime -= gOldTime, DHMS) > -2){
+		UpdateTVg()
 	}
 	FileGetTime, pNewTime, % settings.pSaveDir
-	if ((pNewTime -= pOldTime, DHMS) > -3){
-		UpdateLVp()
+	if ((pNewTime -= pOldTime, DHMS) > -2){
+		UpdateTVp()
 	}
 }
 ; ==================================================================================================================================
 
 SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as parameters
-	global settings
 	Gui, Main:+OwnDialogs
 	loop {
 		InputBox, name, Savefile Replacer, Name the directory,, 200, 150
@@ -146,12 +165,14 @@ SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as
 	} until (name || ErrorLevel)
 	if (ErrorLevel == 1)
 		return ""
+	; Update the directories in the settings
+	settings.gSaveDir := gdir
+	settings.pSaveDir := pdir
 	settings.SavedDirs[name] := [gdir, pdir] ; Use the name as a key with it's value being a small array that holds both directories
 	return name
 }
 
 SpecialCaseAK(FileName, FileToReplaceWith){
-	global settings
 	if (InStr(FileName, "0x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save0x0.sgd"))
 			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save0x0.sgd"], 1
