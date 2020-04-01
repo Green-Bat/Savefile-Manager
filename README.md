@@ -7,7 +7,9 @@ Click `Add a game`, which will then prompt you to choose a folder which will be 
 
 `Remove current game` will remove the game you currently have selected.
 
-`<=` is the backup button. You choose a file from the game files list (on the right) then click the button. You then enter the name you want for your backup file.
+`<=` is the backup button. You choose a file from the game files list (on the right) then click the button. You then enter the name you want for your backup file.  
+If a sub-folder is highlighted the backup save will go in the sub-folder instead of the
+main folder.
 
 `=>` is the replace button. You choose a file from your personal files list (on the left) and a file from the game files list (on the right) and then click the button. It will overwrite* the game file with whatever you chose from your personal files.
 
