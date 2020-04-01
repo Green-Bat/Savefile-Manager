@@ -5,7 +5,8 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.2 (Last updated 30/03/2020)
+*	1.3 (Last updated 01/04/2020)
+*	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
 #NoEnv
@@ -19,11 +20,14 @@ if !(IsObject(settingsfile)){
 	MsgBox, 16, Savefile Replacer, ERROR: Failed to load settings file! Please make sure it's in the same directory as the program's exe file.
 	ExitApp
 }
-settings := JSON.Load(settingsfile.Read())
+global settings := JSON.Load(settingsfile.Read())
 settingsfile.Close()
 
 SetTimer, CheckFiles, 1000 ; Timer to detect any changes the user might make to the folders manually.
 
+ImageListID := IL_Create(1)
+IL_Add(ImageListID, "shell32.dll", 1)
+IL_Add(ImageListID, "shell32.dll", 4)
 ;**************************************************************************************************************************************************************************************
 Gui, Main:New, +HwndMainHwnd, Savefile Replacer
 Gui, Font, s11
@@ -43,25 +47,13 @@ if (settings.SavedDirs.Count()){
 GuiControl, Choose, c_Dirs, % settings.LastChosenGame ; Make the current choice in the DropDown be whatever the user chose last.
 Gui, Main:Add, Text, xm yp+70 w450 r2 vptext, % "Current personal directory: " settings.pSaveDir
 Gui, Main:Add, Text, xm yp+30 w450 r2 vgtext, % "Current game directory: " settings.gSaveDir
-Gui, Main:Add, ListView, r18 xm yp+40 w220 -Hdr -Multi  +LV0x400 +LV0x4000 vLVp, Personal Files
-; Populate the ListView with the files in the currently chosen personal/game directories, if they exist
-if (settings.pSaveDir){
-	Loop, Files, % settings.pSaveDir "\*.sgd", R  ; Get all files in the directory, including subfolders
-	{
-		LV_Add("", A_LoopFileNAme)
-		settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath ; Save the file paths and use their names as keys
-	}
-}
-LV_ModifyCol(1, 195)
-Gui, Main:Add, ListView, r15 xp+250 yp w200 -Hdr -Multi +LV0x400 +LV0x4000 vLVg, Game Files
-if (settings.gSaveDir){
-	Loop, Files, % settings.gSaveDir "\*.sgd"
-	{
-		LV_Add("", A_LoopFileNAme)
-		settings.gCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
-	}
-}
-LV_ModifyCol(1, 195)
+Gui, Main:Add, TreeView, r19 xm yp+40 w220 -HScroll -Lines +0x800 ImageList%ImageListID% vTVp
+; Populate the TreeView with the files in the currently chosen personal/game directories, if they exist
+if (settings.pSaveDir)
+	UpdateTVp()
+Gui, Main:Add, TreeView, r15 xp+250 yp w200 -HScroll -Lines +0x800 ImageList%ImageListID% vTVg
+if (settings.gSaveDir)
+	UpdateTVg()
 Gui, Font, s16
 Gui, Main:Add, Button, xp-30 yp+60 w30 h30 gcreate_backup, <=
 Gui, Main:Add, Button, xp yp+60 wp hp greplace, =>
@@ -83,9 +75,6 @@ add_game: ; Adds a game and saves it
 	; Let the user choose the name that will be saved, if blank then return
 	if !(SavedName := SaveDir(newGameDir, newPersonalDir))
 		return
-	; Update the directories in the settings
-	settings.pSaveDir := newPersonalDir
-	settings.gSaveDir := newGameDir
 	; Update the DropDown and make whatever the user just saved be the current choice
 	GuiControl,, c_Dirs, |
 	for savedgame in settings.SavedDirs {
@@ -96,90 +85,111 @@ add_game: ; Adds a game and saves it
 	GuiControlGet, savednum,, c_Dirs
 	settings.LastChosenGame := savednum
 	GuiControl, -AltSubmit, c_Dirs
-	; Update the text and the ListViews
+	; Update the text and the TreeViews
 	GuiControl, Text, ptext, % "Current personal directory: " settings.pSaveDir
 	GuiControl, Text, gtext, % "Current game directory: " settings.gSaveDir
-	UpdateLVg()
-	UpdateLVp()
+	UpdateTVg()
+	UpdateTVp()
 	return
 ;**************************************************************************************************************************************************************************************
 
 remove_game: ; Deletes the currently selected game in the DropDown
 	GuiControlGet, GameToRemove,, c_Dirs
-	settings.pSaveDir := ""
-	settings.gSaveDir := ""
+	settings.pSaveDir := settings.gSaveDir := settings.LastChosenGame := ""
+	, settings.pCurrentFilePaths := settings.gCurrentFilePaths := {}
 	settings.SavedDirs.Delete(GameToRemove)
 	; Empty the DropDown and refill it again with the other saved games
 	GuiControl,, c_Dirs, |
 	for savedgame in settings.SavedDirs {
 		GuiControl,, c_Dirs, %savedgame%
 	}
-	; Empty the ListView
-	Gui, ListView, LVg
-	LV_Delete()
-	Gui, ListView, LVp
-	LV_Delete()
+	; Empty the TreeView
+	Gui, TreeView, TVg
+	TV_Delete()
+	Gui, TreeView, TVp
+	TV_Delete()
 	; Update the the text and the LastChosenGame
-	GuiControl, Text, ptext, % "Current personal directory: " settings.pSaveDir
-	GuiControl, Text, gtext, % "Current game directory: " settings.gSaveDir
-	settings.LastChosenGame := ""
+	GuiControl, Text, ptext, % "Current personal directory: "
+	GuiControl, Text, gtext, % "Current game directory: "
 	return
 ;**************************************************************************************************************************************************************************************
 
-create_backup: ; Create a backup from the currently highlighted file in the game files ListView
+create_backup: ; Create a backup from the currently highlighted file in the game files TreeView
 	Gui +OwnDialogs
-	Gui, ListView, LVg
-	if !(LV_GetNext()) { ; Return if nothing is highlighted
+	Gui, TreeView, TVg
+	if !(TV_GetSelection()) { ; Return if nothing is highlighted
 		MsgBox, 48, Savefile Replacer, Select a game file to backup
 		return
 	}
-	LV_GetText(FileToBackup, LV_GetNext()) ; Get the name of the file the user highlighted so it can be used to get the full path
+	TV_GetText(FileToBackup, TV_GetSelection()) ; Get the name of the file the user highlighted so it can be used to get the full path
 	; Let the user choose the name of the backup file, if they cancel the dialog (i.e., ErrorLevel = 1), return
-	Gui, ListView, LVp
-	loop {
+	Gui, TreeView, TVp
+	TV_GetText(SubFolder, parentID := TV_GetSelection())
+	Loop {
 		InputBox, BackupName, Savefile Replacer, Choose backup name,, 200, 150
-		Loop, % LV_GetCount() {
-			LV_GetText(ExistingName, A_Index)
-			if (BackupName == SubStr(ExistingName, 1, -4)){
-				MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
-				IfMsgBox, Yes
-					break
-				else {
-					BackupName := ""
-					break
+		childID := 0
+		if !(InStr(SubFolder, ".sgd")) { ; If a sub-folder is highlighted check if the chosen backup name already exists in the sub-folder and not in the main directory
+			childID := TV_GetChild(parentID)
+			Loop {
+				(A_Index == 1) ? TV_GetText(ExistingName, childID) : TV_GetText(ExistingName, childID := TV_GetNext(childID))
+				if (BackupName == SubStr(ExistingName, 1, -4)){
+					MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
+					IfMsgBox, Yes
+						break
+					else {
+						BackupName := ""
+						break
+					}
+				}
+			} until !(TV_GetParent(childID) == parentID && BackupName)
+		} else {
+			Loop, % TV_GetCount() {
+				TV_GetText(ExistingName, childID := TV_GetNext(childID, "F"))
+				if (BackupName == SubStr(ExistingName, 1, -4)){
+					MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
+					IfMsgBox, Yes
+						break
+					else {
+						BackupName := ""
+						break
+					}
 				}
 			}
 		}
 	} until (BackupName || ErrorLevel)
 	if (ErrorLevel == 1)
 		return
-	; Create a copy from the game file and put it in the current personal directory then update the personal file ListView
-	FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[BackupName ".sgd"] := settings.pSaveDir "\" BackupName ".sgd", 1
-	UpdateLVp()
+	; If a subfolder is highlighted add the backup file to it instead of the root directory
+	if !(InStr(SubFolder, ".sgd"))
+		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[BackupName ".sgd"] := settings.pCurrentFilePaths[SubFolder] "\" BackupName ".sgd", 1
+	; Create a copy from the game file and put it in the current personal directory then update the personal file TreeView
+	else
+		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[BackupName ".sgd"] := settings.pSaveDir "\" BackupName ".sgd", 1
+	UpdateTVp(BackupName)
 	return
 ;**************************************************************************************************************************************************************************************
 
-replace: ; Replace the currently highlighted file in the game file ListView with the currently highlighted file in the personal file ListView
+replace: ; Replace the currently highlighted file in the game file TreeView with the currently highlighted file in the personal file TreeView
 	Gui +OwnDialogs
-	Gui, ListView, LVg
-	if !(SelectedRow := LV_GetNext()) {
+	Gui, TreeView, TVg
+	if !(gID := TV_GetSelection()) {
 		MsgBox, 48, Savefile Replacer, Select a game file to replace
 		return
 	}
-	LV_GetText(FileToReplace, SelectedRow)
-	Gui, ListView, LVp
-	if !(LV_GetNext()) {
+	TV_GetText(FileToReplace, gID)
+	Gui, TreeView, TVp
+	TV_GetText(FileToReplaceWith, pID := TV_GetSelection())
+	if !(pID && InStr(FileToReplaceWith, ".sgd", true)) {
 		MsgBox, 48, Savefile Replacer, Select a personal file to replace with
 		return
 	}
-	LV_GetText(FileToReplaceWith, LV_GetNext())
 	;Special Case for Batman: Arkahm Knight*******************************************************************************************
 	if (InStr(FileToReplace, "BAK"))
 		SpecialCaseAK(FileToReplace, FileToReplaceWith)
 	;**************************************************************************************************************************************
-	else ; Creates a copy of the personal file, renames it and overwrites the selected game file then updates the game files ListView
+	else ; Creates a copy of the personal file, renames it and overwrites the selected game file then updates the game files TreeView
 		FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths[FileToReplace], 1
-	UpdateLVg(SelectedRow)
+	UpdateTVg(FileToReplace)
 	return
 ;**************************************************************************************************************************************************************************************
 
