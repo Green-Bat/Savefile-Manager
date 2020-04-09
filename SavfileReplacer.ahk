@@ -5,13 +5,14 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.3 (Last updated 01/04/2020)
+*	1.3.2 (Last updated 09/04/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
 #NoEnv
 #NoTrayIcon
-ListLines Off
+#SingleInstance, Ignore
+ListLines, Off
 SetBatchLines, -1
 SetWorkingDir, % A_ScriptDir
 
@@ -25,7 +26,7 @@ settingsfile.Close()
 
 SetTimer, CheckFiles, 1000 ; Timer to detect any changes the user might make to the folders manually.
 
-ImageListID := IL_Create(1)
+ImageListID := IL_Create(2)
 IL_Add(ImageListID, "shell32.dll", 1)
 IL_Add(ImageListID, "shell32.dll", 4)
 ;**************************************************************************************************************************************************************************************
@@ -46,17 +47,17 @@ if (settings.SavedDirs.Count()){
 }
 GuiControl, Choose, c_Dirs, % settings.LastChosenGame ; Make the current choice in the DropDown be whatever the user chose last.
 Gui, Main:Add, Text, xm yp+70 w450 r2 vptext, % "Current personal directory: " settings.pSaveDir
-Gui, Main:Add, Text, xm yp+30 w450 r2 vgtext, % "Current game directory: " settings.gSaveDir
-Gui, Main:Add, TreeView, r19 xm yp+40 w220 -HScroll -Lines +0x800 ImageList%ImageListID% vTVp
+Gui, Main:Add, Text, xm yp+30 wp r2 vgtext, % "Current game directory: " settings.gSaveDir
+Gui, Main:Add, TreeView, r19 xm yp+40 w220 -HScroll -Lines +0x800 +0x1000 ImageList%ImageListID% vTVp
+Gui, Main:Add, TreeView, r15 xp+250 yp wp-20 -HScroll -Lines +0x800 +0x1000 ImageList%ImageListID% vTVg
 ; Populate the TreeView with the files in the currently chosen personal/game directories, if they exist
-if (settings.pSaveDir)
-	UpdateTVp()
-Gui, Main:Add, TreeView, r15 xp+250 yp w200 -HScroll -Lines +0x800 ImageList%ImageListID% vTVg
-if (settings.gSaveDir)
+if (settings.gSaveDir && settings.pSaveDir){
 	UpdateTVg()
+	UpdateTVp()
+}
 Gui, Font, s16
-Gui, Main:Add, Button, xp-30 yp+60 w30 h30 gcreate_backup, <=
-Gui, Main:Add, Button, xp yp+60 wp hp greplace, =>
+Gui, Main:Add, Button, xp-30 yp+80 w30 h30 gcreate_backup, <=
+Gui, Main:Add, Button, xp yp-60 wp hp greplace, =>
 Gui, Font
 Gui, Main:Show, W470 H470
 return
@@ -82,8 +83,8 @@ add_game: ; Adds a game and saves it
 	}
 	; Use AltSubmit to get the position of the currently chosen item in the DropDown and make it the LastChosenGame
 	GuiControl, +AltSubmit, c_Dirs
-	GuiControlGet, savednum,, c_Dirs
-	settings.LastChosenGame := savednum
+	Gui, Main:Submit, NoHide
+	settings.LastChosenGame := c_Dirs
 	GuiControl, -AltSubmit, c_Dirs
 	; Update the text and the TreeViews
 	GuiControl, Text, ptext, % "Current personal directory: " settings.pSaveDir
@@ -94,10 +95,10 @@ add_game: ; Adds a game and saves it
 ;**************************************************************************************************************************************************************************************
 
 remove_game: ; Deletes the currently selected game in the DropDown
-	GuiControlGet, GameToRemove,, c_Dirs
+	Gui, Main:Submit, NoHide
 	settings.pSaveDir := settings.gSaveDir := settings.LastChosenGame := ""
 	, settings.pCurrentFilePaths := settings.gCurrentFilePaths := {}
-	settings.SavedDirs.Delete(GameToRemove)
+	settings.SavedDirs.Delete(c_Dirs)
 	; Empty the DropDown and refill it again with the other saved games
 	GuiControl,, c_Dirs, |
 	for savedgame in settings.SavedDirs {
@@ -132,7 +133,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 			childID := TV_GetChild(parentID)
 			Loop {
 				(A_Index == 1) ? TV_GetText(ExistingName, childID) : TV_GetText(ExistingName, childID := TV_GetNext(childID))
-				if (BackupName == SubStr(ExistingName, 1, -4)){
+				if (InStr(ExistingName, ".sgd") && BackupName == SubStr(ExistingName, 1, -4)){
 					MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
 					IfMsgBox, Yes
 						break
@@ -145,7 +146,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 		} else {
 			Loop, % TV_GetCount() {
 				TV_GetText(ExistingName, childID := TV_GetNext(childID, "F"))
-				if (BackupName == SubStr(ExistingName, 1, -4)){
+				if ( InStr(ExistingName, ".sgd") && BackupName == SubStr(ExistingName, 1, -4)){
 					MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
 					IfMsgBox, Yes
 						break
@@ -194,13 +195,15 @@ replace: ; Replace the currently highlighted file in the game file TreeView with
 ;**************************************************************************************************************************************************************************************
 
 change_dirs: ; Runs when the user changes the DropDownList choice
-	GuiControlGet, newDir,, c_Dirs ; Get the new choice of the DropDownList and update everything accordingly 
-	UpdateDirs(newDir)
+	Gui, Main:Submit, NoHide ; Get the new choice of the DropDownList and update everything accordingly
 	; AltSubmit used to get the current position of the choice then makes it the last chosen game
 	GuiControl, +AltSubmit, c_Dirs
-	GuiControlGet, chosennum,, c_Dirs
-	settings.LastChosenGame := chosennum
+	GuiControlGet, ChosenNum,, c_Dirs
 	GuiControl, -AltSubmit, c_Dirs
+	if (ChosenNum == settings.LastChosenGame) ; If the user clicks on a game that was already chosen, do nothing
+		return
+	UpdateDirs(c_Dirs)
+	settings.LastChosenGame := ChosenNum
 	return
 ;**************************************************************************************************************************************************************************************
 
