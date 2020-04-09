@@ -5,14 +5,14 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.3.1 (Last updated 07/04/2020)
+*	1.3.2 (Last updated 09/04/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
 #NoEnv
 #NoTrayIcon
 #SingleInstance, Ignore
-ListLines Off
+ListLines, Off
 SetBatchLines, -1
 SetWorkingDir, % A_ScriptDir
 
@@ -49,12 +49,12 @@ GuiControl, Choose, c_Dirs, % settings.LastChosenGame ; Make the current choice 
 Gui, Main:Add, Text, xm yp+70 w450 r2 vptext, % "Current personal directory: " settings.pSaveDir
 Gui, Main:Add, Text, xm yp+30 wp r2 vgtext, % "Current game directory: " settings.gSaveDir
 Gui, Main:Add, TreeView, r19 xm yp+40 w220 -HScroll -Lines +0x800 +0x1000 ImageList%ImageListID% vTVp
-; Populate the TreeView with the files in the currently chosen personal/game directories, if they exist
-if (settings.pSaveDir)
-	UpdateTVp()
 Gui, Main:Add, TreeView, r15 xp+250 yp wp-20 -HScroll -Lines +0x800 +0x1000 ImageList%ImageListID% vTVg
-if (settings.gSaveDir)
+; Populate the TreeView with the files in the currently chosen personal/game directories, if they exist
+if (settings.gSaveDir && settings.pSaveDir){
 	UpdateTVg()
+	UpdateTVp()
+}
 Gui, Font, s16
 Gui, Main:Add, Button, xp-30 yp+80 w30 h30 gcreate_backup, <=
 Gui, Main:Add, Button, xp yp-60 wp hp greplace, =>
@@ -133,7 +133,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 			childID := TV_GetChild(parentID)
 			Loop {
 				(A_Index == 1) ? TV_GetText(ExistingName, childID) : TV_GetText(ExistingName, childID := TV_GetNext(childID))
-				if (BackupName == SubStr(ExistingName, 1, -4)){
+				if (InStr(ExistingName, ".sgd") && BackupName == SubStr(ExistingName, 1, -4)){
 					MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
 					IfMsgBox, Yes
 						break
@@ -146,7 +146,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 		} else {
 			Loop, % TV_GetCount() {
 				TV_GetText(ExistingName, childID := TV_GetNext(childID, "F"))
-				if (BackupName == SubStr(ExistingName, 1, -4)){
+				if ( InStr(ExistingName, ".sgd") && BackupName == SubStr(ExistingName, 1, -4)){
 					MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
 					IfMsgBox, Yes
 						break
@@ -195,13 +195,15 @@ replace: ; Replace the currently highlighted file in the game file TreeView with
 ;**************************************************************************************************************************************************************************************
 
 change_dirs: ; Runs when the user changes the DropDownList choice
-	Gui, Main:Submit, NoHide ; Get the new choice of the DropDownList and update everything accordingly 
-	UpdateDirs(c_Dirs)
+	Gui, Main:Submit, NoHide ; Get the new choice of the DropDownList and update everything accordingly
 	; AltSubmit used to get the current position of the choice then makes it the last chosen game
 	GuiControl, +AltSubmit, c_Dirs
-	Gui, Main:Submit, NoHide
-	settings.LastChosenGame := c_Dirs
+	GuiControlGet, ChosenNum,, c_Dirs
 	GuiControl, -AltSubmit, c_Dirs
+	if (ChosenNum == settings.LastChosenGame) ; If the user clicks on a game that was already chosen, do nothing
+		return
+	UpdateDirs(c_Dirs)
+	settings.LastChosenGame := ChosenNum
 	return
 ;**************************************************************************************************************************************************************************************
 
