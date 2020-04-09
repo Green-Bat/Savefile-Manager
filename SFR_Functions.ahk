@@ -82,8 +82,13 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 			IDToSelect := AddedID
 	}
 	GuiControl, +Redraw, TVg
-	if (FileToReplace)
+	if (FileToReplace){
+		SetTimer, CheckFiles, Off
 		TV_Modify(IDToSelect, "+Select")
+		GuiControl, Focus, TVg
+		Sleep, 1000
+		SetTimer, CheckFiles, On
+	}
 }
 ; ==================================================================================================================================
 
@@ -102,23 +107,24 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 		settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
 		Loop, Files, % A_LoopFileLongPath "\*.sgd" 
 		{
-			id := TV_Add(A_LoopFileName, Parent, "Icon1")
+			AddedID := TV_Add(A_LoopFileName, Parent, "Icon1")
 			if (A_LoopFileName == BackupName . ".sgd")
-				IDToSelect := id
+				IDToSelect := AddedID
 			settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath ; Save the file paths and use their names as keys
 		}
 	}
 	Loop, Files, % settings.pSaveDir "\*.sgd"
 	{
-		id := TV_Add(A_LoopFileName,, "Icon1")
+		AddedID := TV_Add(A_LoopFileName,, "Icon1")
 		if (A_LoopFileName == BackupName . ".sgd" && !IDToSelect)
-			IDToSelect := id
+			IDToSelect := AddedID
 		settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
 	}
 	GuiControl, +Redraw, TVp
 	if (BackupName){
-		TV_Modify(IDToSelect, "+Select +VisFirst" )
 		SetTimer, CheckFiles, Off
+		TV_Modify(IDToSelect, "+Select +VisFirst" )
+		GuiControl, Focus, TVp
 		Sleep, 1000
 		SetTimer, CheckFiles, On
 	}
