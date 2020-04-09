@@ -21,4 +21,4 @@ Keep the main exe and the settings file in the same directory.
 If you want to move the program somewhere else create a shortcut and move that.
 
 ### Kill-Switch:
-Ctrl+Esc will terminate the program
+Ctrl+Esc will terminate the program without saving any settnings
