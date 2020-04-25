@@ -1,6 +1,3 @@
-#Warn
-#NoEnv
-SetWorkingDir ,% A_ScriptDir
 ; ==================================================================================================================================
 ; Function taken from https://www.autohotkey.com/boards/viewtopic.php?t=18939&p=302675
 ; Shows a dialog to select a folder.
@@ -101,24 +98,13 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 	Gui, TreeView, TVp
 	TV_Delete()
 	GuiControl, -Redraw, TVp
-	Loop, Files, % settings.pSaveDir "\*.*", D  ; Get all sub-folders in the directory
-	{
-		Parent := TV_Add(A_LoopFileName,, "Icon2")
-		settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
-		Loop, Files, % A_LoopFileLongPath "\*.sgd" 
-		{
-			AddedID := TV_Add(A_LoopFileName, Parent, "Icon1")
-			if (A_LoopFileName == BackupName . ".sgd")
-				IDToSelect := AddedID
-			settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath ; Save the file paths and use their names as keys
-		}
-	}
+	AddSubfolders(settings.pSaveDir)
 	Loop, Files, % settings.pSaveDir "\*.sgd"
 	{
 		AddedID := TV_Add(A_LoopFileName,, "Icon1")
-		if (A_LoopFileName == BackupName . ".sgd" && !IDToSelect)
+		settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath ; Save the file paths and use their IDs as keys
+		if (A_LoopFileName == BackupName) ; Get id of the game save to have to be selected after the TreeView is drawn
 			IDToSelect := AddedID
-		settings.pCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath
 	}
 	GuiControl, +Redraw, TVp
 	if (BackupName){
@@ -127,6 +113,24 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 		GuiControl, Focus, TVp
 		Sleep, 1000
 		SetTimer, CheckFiles, On
+	} else {
+		TV_Modify(TV_GetNext())
+		GuiControl, Focus, TVp
+	}
+}
+
+AddSubfolders(Folder, Parent:=0){
+	Loop, Files, % Folder "\*.*", D
+	{
+		SubfolderID := TV_Add(A_LoopFileName, Parent, "Icon2")
+		settings.pCurrentFilePaths[SubfolderID] := A_LoopFileLongPath
+		; Recursively add each subfolder and it's contents to the tree
+		AddSubfolders(A_LoopFileLongPath, SubfolderID)
+		Loop, Files, % A_LoopFileLongPath "\*.sgd"
+		{
+			AddedID := TV_Add(A_LoopFileName, SubfolderID, "Icon1")
+			settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath			
+		}
 	}
 }
 ; ==================================================================================================================================
@@ -146,14 +150,14 @@ UpdateDirs(key){ ; Function that is called when the user chooses an option in th
 CheckFiles(){
 	gOldTime := pOldTime := A_Now ; Get the current time to compare it to the last modified time of the folders
 	Gui, Main:Default ; Ensures the corrct gui window will be acted on when the update functions are called
+
 	FileGetTime, gNewTime, % settings.gSaveDir
-	if ((gNewTime -= gOldTime, DHMS) > -2){
+	if ((gNewTime -= gOldTime, DHMS) > -2)
 		UpdateTVg()
-	}
+
 	FileGetTime, pNewTime, % settings.pSaveDir
-	if ((pNewTime -= pOldTime, DHMS) > -2){
+	if ((pNewTime -= pOldTime, DHMS) > -2)
 		UpdateTVp()
-	}
 }
 ; ==================================================================================================================================
 
@@ -177,6 +181,54 @@ SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as
 	settings.SavedDirs[name] := [gdir, pdir] ; Use the name as a key with it's value being a small array that holds both directories
 	return name
 }
+; ==================================================================================================================================
+
+TV_CustomSort(item, iconNumber:=""){
+	Gui, TreeView, TVp
+	parent := TV_GetParent(item)
+	, child := TV_GetChild(parent) ; Gets the topmost child
+	, newID := "" ; Will hold the new id of the item
+	, temp := [] ; Array for sorting
+	, tempPaths := [] ; Array for storing the file paths temporarily
+	, NotFound := 1
+	TV_GetText(newItem, item)
+	; If item is only one in list, return
+	if !(TV_GetPrev(item))
+		return
+
+	TV_Delete(item) 
+	; Add all the children to the array
+	while(child){
+		TV_GetText(childName, child)
+		if !(InStr(childName, ".sgd", true)){
+			child := TV_GetNext(child)
+			continue
+		}
+		; If the item's name comes first alphabetically add it first
+		if ( NotFound && newItem < childName){
+			temp.Push(newItem)
+			temp.Push(childName)
+			NotFound := !NotFound
+		} else {
+			temp.Push(childName)
+		}
+		tempPaths.Push(settings.pCurrentFilePaths[child])
+		settings.pCurrentFilePaths.Delete(child)
+		oldChild := child
+		child := TV_GetNext(child) ; Get the next child
+		TV_Delete(oldChild) ; Delete the topmost child
+	}
+	; Add all the sorted items from the array
+	for index, val in temp {
+		id := TV_Add(val, parent, "icon" (InStr(val, ".sgd", true) ? iconNumber : iconNumber+1))
+		settings.pCurrentFilePaths[id] := tempPaths[index] ; Readd the file paths with their new IDs
+		if (val == newItem) ; Get the new id of the item
+			newID := id
+	}
+	; Return the new id of the item
+	return TV_Modify(newID, "+Select +VisFirst")
+}
+; ==================================================================================================================================
 
 SpecialCaseAK(FileName, FileToReplaceWith){
 	if (InStr(FileName, "0x")){
