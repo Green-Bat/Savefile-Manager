@@ -1,11 +1,11 @@
-#Include SFR_Functions.ahk
 #include JSON.ahk
+#Include SFR_Functions.ahk
 
 /**
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.3.2 (Last updated 09/04/2020)
+*	1.3.6 (Last updated 22/04/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -48,16 +48,18 @@ if (settings.SavedDirs.Count()){
 GuiControl, Choose, c_Dirs, % settings.LastChosenGame ; Make the current choice in the DropDown be whatever the user chose last.
 Gui, Main:Add, Text, xm yp+70 w450 r2 vptext, % "Current personal directory: " settings.pSaveDir
 Gui, Main:Add, Text, xm yp+30 wp r2 vgtext, % "Current game directory: " settings.gSaveDir
-Gui, Main:Add, TreeView, r19 xm yp+40 w220 -HScroll -Lines +0x800 +0x1000 ImageList%ImageListID% vTVp
+Gui, Main:Add, TreeView, r19 xm yp+40 w220 -HScroll -Lines -Buttons +0x800 +0x1000 ImageList%ImageListID% vTVp
 Gui, Main:Add, TreeView, r15 xp+250 yp wp-20 -HScroll -Lines +0x800 +0x1000 ImageList%ImageListID% vTVg
 ; Populate the TreeView with the files in the currently chosen personal/game directories, if they exist
 if (settings.gSaveDir && settings.pSaveDir){
 	UpdateTVg()
 	UpdateTVp()
+	TV_Modify(TV_GetNext())
+	GuiControl, Focus, TVp
 }
 Gui, Font, s16
-Gui, Main:Add, Button, xp-30 yp+80 w30 h30 gcreate_backup, <=
-Gui, Main:Add, Button, xp yp-60 wp hp greplace, =>
+Gui, Main:Add, Button, xp-30 yp+20 w30 h30 greplace, =>
+Gui, Main:Add, Button, xp yp+60 wp hp gcreate_backup, <=
 Gui, Font
 Gui, Main:Show, W470 H470
 return
@@ -129,7 +131,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 	Loop {
 		InputBox, BackupName, Savefile Replacer, Choose backup name,, 200, 150
 		childID := 0
-		if !(InStr(SubFolder, ".sgd")) { ; If a sub-folder is highlighted check if the chosen backup name already exists in the sub-folder and not in the main directory
+		if !(SubFIsHighlighted := InStr(SubFolder, ".sgd")) { ; If a sub-folder is highlighted check if the chosen backup name already exists in the sub-folder and not in the main directory
 			childID := TV_GetChild(parentID)
 			Loop {
 				(A_Index == 1) ? TV_GetText(ExistingName, childID) : TV_GetText(ExistingName, childID := TV_GetNext(childID))
@@ -145,7 +147,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 			} until !(TV_GetParent(childID) == parentID && BackupName)
 		} else {
 			Loop, % TV_GetCount() {
-				TV_GetText(ExistingName, childID := TV_GetNext(childID, "F"))
+				(A_Index == 1) ? TV_GetText(ExistingName, childID) : TV_GetText(ExistingName, childID := TV_GetNext(childID))
 				if ( InStr(ExistingName, ".sgd") && BackupName == SubStr(ExistingName, 1, -4)){
 					MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
 					IfMsgBox, Yes
@@ -161,12 +163,21 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 	if (ErrorLevel == 1)
 		return
 	; If a subfolder is highlighted add the backup file to it instead of the root directory
-	if !(InStr(SubFolder, ".sgd"))
-		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[BackupName ".sgd"] := settings.pCurrentFilePaths[SubFolder] "\" BackupName ".sgd", 1
-	; Create a copy from the game file and put it in the current personal directory then update the personal file TreeView
-	else
-		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[BackupName ".sgd"] := settings.pSaveDir "\" BackupName ".sgd", 1
-	UpdateTVp(BackupName)
+	if !(SubFIsHighlighted){
+		AddID := TV_Add(BackupName ".sgd", parentID, "Icon1")
+		TV_GetText(BackupName, AddID)
+		TV_GetText(prevName, TV_GetPrev(AddID))
+		if (BackupName < prevName)
+			AddID := TV_CustomSort(AddID, 1)
+		else
+			TV_Modify(AddID, "+Select +VisFirst")
+		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[AddID] := settings.pCurrentFilePaths[parentID] "\" BackupName, 1
+	} else {	; Create a copy from the game file and put it in the current personal directory then update the personal file TreeView
+		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pSaveDir "\" BackupName ".sgd", 1
+		UpdateTVp(BackupName . ".sgd")
+	}
+	SoundPlay, *-1
+	GuiControl, Focus, TVp
 	return
 ;**************************************************************************************************************************************************************************************
 
@@ -186,10 +197,11 @@ replace: ; Replace the currently highlighted file in the game file TreeView with
 	}
 	;Special Case for Batman: Arkahm Knight*******************************************************************************************
 	if (InStr(FileToReplace, "BAK"))
-		SpecialCaseAK(FileToReplace, FileToReplaceWith)
+		SpecialCaseAK(FileToReplace, pID)
 	;**************************************************************************************************************************************
 	else ; Creates a copy of the personal file, renames it and overwrites the selected game file then updates the game files TreeView
-		FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths[FileToReplace], 1
+		FileCopy, % settings.pCurrentFilePaths[pID], % settings.gCurrentFilePaths[FileToReplace], 1
+	SoundPlay, *-1
 	UpdateTVg(FileToReplace)
 	return
 ;**************************************************************************************************************************************************************************************
@@ -222,4 +234,6 @@ MainGuiClose:
 	settingsfile.Close()
 	ExitApp
 
+#If WinExist("ahk_id " MainHwnd)
 ^Esc::ExitApp
+#If
