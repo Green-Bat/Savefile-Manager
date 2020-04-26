@@ -103,7 +103,7 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 	{
 		AddedID := TV_Add(A_LoopFileName,, "Icon1")
 		settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath ; Save the file paths and use their IDs as keys
-		if (A_LoopFileName == BackupName) ; Get id of the game save to have to be selected after the TreeView is drawn
+		if (A_LoopFileName == BackupName) ; Get id of the file to have it be selected after the TreeView is drawn
 			IDToSelect := AddedID
 	}
 	GuiControl, +Redraw, TVp
@@ -165,13 +165,12 @@ SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as
 	Gui, Main:+OwnDialogs
 	loop {
 		InputBox, name, Savefile Replacer, Name the directory,, 200, 150
-		for k in settings.SavedDirs { ; check if the name is already saved and warns the user (not case sensitive)
-			if (k == name){
-				MsgBox, 48, Savefile Replacer, % "The name: """ k """ already exists please choose another one."
-				name := ""
-				break
-			}
-		}		
+		; check if the name is already saved and warn the user (not case sensitive)
+		if (settings.SavedDirs.HasKey(name)) {
+			MsgBox, 48, Savefile Replacer, % "The name: """ name """ already exists please choose another one."
+			name := ""
+			continue
+		}
 	} until (name || ErrorLevel)
 	if (ErrorLevel == 1)
 		return ""
@@ -200,6 +199,7 @@ TV_CustomSort(item, iconNumber:=""){
 	; Add all the children to the array
 	while(child){
 		TV_GetText(childName, child)
+		; Ignore folders
 		if !(InStr(childName, ".sgd", true)){
 			child := TV_GetNext(child)
 			continue
@@ -207,6 +207,7 @@ TV_CustomSort(item, iconNumber:=""){
 		; If the item's name comes first alphabetically add it first
 		if ( NotFound && newItem < childName){
 			temp.Push(newItem)
+			tempPaths.Push(" ")
 			temp.Push(childName)
 			NotFound := !NotFound
 		} else {
@@ -220,12 +221,12 @@ TV_CustomSort(item, iconNumber:=""){
 	}
 	; Add all the sorted items from the array
 	for index, val in temp {
-		id := TV_Add(val, parent, "icon" (InStr(val, ".sgd", true) ? iconNumber : iconNumber+1))
-		settings.pCurrentFilePaths[id] := tempPaths[index] ; Readd the file paths with their new IDs
-		if (val == newItem) ; Get the new id of the item
+		id := TV_Add(val, parent, "icon" iconNumber)
+		settings.pCurrentFilePaths[id] := tempPaths[index] ; Read the file paths with their new IDs
+		if (val == newItem) ; Get the new ID of the item
 			newID := id
 	}
-	; Return the new id of the item
+	; Return the new ID of the item
 	return TV_Modify(newID, "+Select +VisFirst")
 }
 ; ==================================================================================================================================
