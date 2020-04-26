@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.3.6 (Last updated 22/04/2020)
+*	1.3.7 (Last updated 25/04/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -111,7 +111,7 @@ remove_game: ; Deletes the currently selected game in the DropDown
 	TV_Delete()
 	Gui, TreeView, TVp
 	TV_Delete()
-	; Update the the text and the LastChosenGame
+	; Update the the text
 	GuiControl, Text, ptext, % "Current personal directory: "
 	GuiControl, Text, gtext, % "Current game directory: "
 	return
@@ -144,7 +144,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 						break
 					}
 				}
-			} until !(TV_GetParent(childID) == parentID && BackupName)
+			} until !(childID)
 		} else {
 			Loop, % TV_GetCount() {
 				(A_Index == 1) ? TV_GetText(ExistingName, childID) : TV_GetText(ExistingName, childID := TV_GetNext(childID))
@@ -234,6 +234,6 @@ MainGuiClose:
 	settingsfile.Close()
 	ExitApp
 
-#If WinExist("ahk_id " MainHwnd)
+#If WinActive("ahk_id " MainHwnd)
 ^Esc::ExitApp
 #If
