@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.3.7 (Last updated 25/04/2020)
+*	1.4.0 (Last updated 30/04/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -23,6 +23,14 @@ if !(IsObject(settingsfile)){
 }
 global settings := JSON.Load(settingsfile.Read())
 settingsfile.Close()
+; Get the virtual width and height
+SysGet, VirtualW, 78
+SysGet, VirtualH, 79
+; If the exisiting coords are greater than the combined widths and height of all monitors, center it in the main monitor
+if (settings.XCoord > VirtualW)
+	settings.XCoord := A_ScreenWidth / 2
+if (settings.YCoord > VirtualH)
+	settings.YCoord := A_ScreenHeight / 2
 
 SetTimer, CheckFiles, 1000 ; Timer to detect any changes the user might make to the folders manually.
 
@@ -61,7 +69,7 @@ Gui, Font, s16
 Gui, Main:Add, Button, xp-30 yp+20 w30 h30 greplace, =>
 Gui, Main:Add, Button, xp yp+60 wp hp gcreate_backup, <=
 Gui, Font
-Gui, Main:Show, W470 H470
+Gui, Main:Show, % "W470 H470 X" settings.XCoord " Y" settings.YCoord
 return
 
 ;*************************************************************************| G-LABELS |**************************************************************************************************
@@ -128,8 +136,9 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 	; Let the user choose the name of the backup file, if they cancel the dialog (i.e., ErrorLevel = 1), return
 	Gui, TreeView, TVp
 	TV_GetText(SubFolder, parentID := TV_GetSelection())
+	WinGetPos, x, y,,, ahk_id %MainHwnd%
 	Loop {
-		InputBox, BackupName, Savefile Replacer, Choose backup name,, 200, 150
+		InputBox, BackupName, Savefile Replacer, Choose backup name,, 200, 150, x + 135, y + 160
 		childID := 0
 		if !(SubFIsHighlighted := InStr(SubFolder, ".sgd")) { ; If a sub-folder is highlighted check if the chosen backup name already exists in the sub-folder and not in the main directory
 			childID := TV_GetChild(parentID)
@@ -167,6 +176,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 		AddID := TV_Add(BackupName ".sgd", parentID, "Icon1")
 		TV_GetText(BackupName, AddID)
 		TV_GetText(prevName, TV_GetPrev(AddID))
+		; Sort the backupname if it's 
 		if (BackupName < prevName)
 			AddID := TV_CustomSort(AddID, 1)
 		else
@@ -197,7 +207,7 @@ replace: ; Replace the currently highlighted file in the game file TreeView with
 	}
 	;Special Case for Batman: Arkahm Knight*******************************************************************************************
 	if (InStr(FileToReplace, "BAK"))
-		SpecialCaseAK(FileToReplace, pID)
+		SpecialCaseAK(FileToReplace, settings.pCurrentFilePaths[pID])
 	;**************************************************************************************************************************************
 	else ; Creates a copy of the personal file, renames it and overwrites the selected game file then updates the game files TreeView
 		FileCopy, % settings.pCurrentFilePaths[pID], % settings.gCurrentFilePaths[FileToReplace], 1
@@ -229,6 +239,8 @@ MainGuiClose:
 		)
 		return
 	}
+	WinGetPos, GuiX, GuiY,,, ahk_id %MainHwnd%
+	settings.XCoord := GuiX, settings.YCoord := GuiY
 	settingsfile.Seek(0)
 	settingsfile.Write((JSON.Dump(settings,, 4)))
 	settingsfile.Close()
