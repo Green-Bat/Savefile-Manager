@@ -162,9 +162,11 @@ CheckFiles(){
 ; ==================================================================================================================================
 
 SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as parameters
+	global MainHwnd
 	Gui, Main:+OwnDialogs
+	WinGetPos, x1, y1,,, ahk_id %MainHwnd%
 	loop {
-		InputBox, name, Savefile Replacer, Name the directory,, 200, 150
+		InputBox, name, Savefile Replacer, Name the directory,, 200, 150, x1 + 135, y1 + 160
 		; check if the name is already saved and warn the user (not case sensitive)
 		if (settings.SavedDirs.HasKey(name)) {
 			MsgBox, 48, Savefile Replacer, % "The name: """ name """ already exists please choose another one."
@@ -217,7 +219,7 @@ TV_CustomSort(item, iconNumber:=""){
 		settings.pCurrentFilePaths.Delete(child)
 		oldChild := child
 		child := TV_GetNext(child) ; Get the next child
-		TV_Delete(oldChild) ; Delete the topmost child
+		TV_Delete(oldChild) ; Delete the previous  child
 	}
 	; Add all the sorted items from the array
 	for index, val in temp {
@@ -234,31 +236,31 @@ TV_CustomSort(item, iconNumber:=""){
 SpecialCaseAK(FileName, FileToReplaceWith){
 	if (InStr(FileName, "0x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save0x0.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save0x0.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save0x0.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save0x1.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save0x1.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save0x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save0x2.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save0x2.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save0x2.sgd"], 1
 	} else if (InStr(FileName, "1x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save1x0.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save1x0.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x0.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save1x1.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save1x1.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save1x2.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save1x2.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x2.sgd"], 1
 	} else if (InStr(FileName, "2x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x0.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save2x0.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x0.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x1.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save2x1.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x2.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save2x2.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x2.sgd"], 1
 	} else if (InStr(FileName, "3x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x0.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save3x0.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x0.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x1.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save3x1.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x2.sgd"))
-			FileCopy, % settings.pCurrentFilePaths[FileToReplaceWith], % settings.gCurrentFilePaths["BAK1Save3x2.sgd"], 1
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x2.sgd"], 1
 	}
 }
