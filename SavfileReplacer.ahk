@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.0 (Last updated 30/04/2020)
+*	1.4.1 (Last updated 03/05/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -28,10 +28,11 @@ SysGet, VirtualW, 78
 SysGet, VirtualH, 79
 ; If the exisiting coords are greater than the combined widths and height of all monitors, center it in the main monitor
 if (settings.XCoord > VirtualW)
-	settings.XCoord := A_ScreenWidth / 2
+	settings.XCoord := (A_ScreenWidth / 2)  - 235
 if (settings.YCoord > VirtualH)
-	settings.YCoord := A_ScreenHeight / 2
+	settings.YCoord := (A_ScreenHeight / 2)  - 235
 
+OnMessage(0x44, "CenterMsgBox") ; Center any MsgBox before it appears
 SetTimer, CheckFiles, 1000 ; Timer to detect any changes the user might make to the folders manually.
 
 ImageListID := IL_Create(2)
@@ -76,10 +77,10 @@ return
 
 add_game: ; Adds a game and saves it
 	; Let user choose the personal directory, if they cancel the dialog then return
-	if !(newPersonalDir := SelectFolderEx(A_Desktop, "Select a directory that contains your own personal save files", MainHwnd))
+	if !(newPersonalDir := SelectFolderEx(settings.pSaveDir ? settings.pSaveDir : A_Desktop, "Select a directory that contains your own personal save files", MainHwnd))
 		return
 	; Let user choose the game directory, if they cancel the dialog then return
-	if !(newGameDir := SelectFolderEx(A_Desktop, "Select the directory that contains the game's save files", MainHwnd))
+	if !(newGameDir := SelectFolderEx(settings.gSaveDir ? settings.gSaveDir : A_Desktop, "Select the directory that contains the game's save files", MainHwnd))
 		return
 
 	Gui +OwnDialogs ; Makes any dialogs like, MsgBox, InputBox...etc, modal
@@ -176,7 +177,6 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 		AddID := TV_Add(BackupName ".sgd", parentID, "Icon1")
 		TV_GetText(BackupName, AddID)
 		TV_GetText(prevName, TV_GetPrev(AddID))
-		; Sort the backupname if it's 
 		if (BackupName < prevName)
 			AddID := TV_CustomSort(AddID, 1)
 		else
