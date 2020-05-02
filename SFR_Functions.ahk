@@ -74,7 +74,7 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 	Loop, Files, % settings.gSaveDir "\*.sgd"  ; Get all files in the directory, including subfolders
 	{
 		AddedID := TV_Add(A_LoopFileName,, "Icon1")
-		settings.gCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath ; Save the file paths and use their names as keys
+		, settings.gCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath ; Save the file paths and use their names as keys
 		if (A_LoopFileName == FileToReplace) ; Get id of the game save to have to be selected after the TreeView is drawn
 			IDToSelect := AddedID
 	}
@@ -102,7 +102,7 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 	Loop, Files, % settings.pSaveDir "\*.sgd"
 	{
 		AddedID := TV_Add(A_LoopFileName,, "Icon1")
-		settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath ; Save the file paths and use their IDs as keys
+		, settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath ; Save the file paths and use their IDs as keys
 		if (A_LoopFileName == BackupName) ; Get id of the file to have it be selected after the TreeView is drawn
 			IDToSelect := AddedID
 	}
@@ -123,13 +123,13 @@ AddSubfolders(Folder, Parent:=0){
 	Loop, Files, % Folder "\*.*", D
 	{
 		SubfolderID := TV_Add(A_LoopFileName, Parent, "Icon2")
-		settings.pCurrentFilePaths[SubfolderID] := A_LoopFileLongPath
+		, settings.pCurrentFilePaths[SubfolderID] := A_LoopFileLongPath
 		; Recursively add each subfolder and it's contents to the tree
 		AddSubfolders(A_LoopFileLongPath, SubfolderID)
 		Loop, Files, % A_LoopFileLongPath "\*.sgd"
 		{
 			AddedID := TV_Add(A_LoopFileName, SubfolderID, "Icon1")
-			settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath			
+			, settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath			
 		}
 	}
 }
@@ -138,7 +138,7 @@ AddSubfolders(Folder, Parent:=0){
 UpdateDirs(key){ ; Function that is called when the user chooses an option in the saved games DropDownList
 	; Takes the choice the user made as a parameter to use to retrieve the path to the saved directories
 	settings.gSaveDir := settings.SavedDirs[key][1]
-	settings.pSaveDir := settings.SavedDirs[key][2]
+	, settings.pSaveDir := settings.SavedDirs[key][2]
 	; Update relevant text then update TreeViews
 	GuiControl, Text, ptext, % "Current personal directory: " settings.pSaveDir
 	GuiControl, Text, gtext, % "Current game directory: " settings.gSaveDir
@@ -178,7 +178,7 @@ SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as
 		return ""
 	; Update the directories in the settings
 	settings.gSaveDir := gdir
-	settings.pSaveDir := pdir
+	, settings.pSaveDir := pdir
 	settings.SavedDirs[name] := [gdir, pdir] ; Use the name as a key with it's value being a small array that holds both directories
 	return name
 }
@@ -207,7 +207,7 @@ TV_CustomSort(item, iconNumber:=""){
 			continue
 		}
 		; If the item's name comes first alphabetically add it first
-		if ( NotFound && newItem < childName){
+		if ( NotFound && (newItem < childName)){
 			temp.Push(newItem)
 			tempPaths.Push(" ")
 			temp.Push(childName)
@@ -218,7 +218,7 @@ TV_CustomSort(item, iconNumber:=""){
 		tempPaths.Push(settings.pCurrentFilePaths[child])
 		settings.pCurrentFilePaths.Delete(child)
 		oldChild := child
-		child := TV_GetNext(child) ; Get the next child
+		, child := TV_GetNext(child) ; Get the next child
 		TV_Delete(oldChild) ; Delete the previous  child
 	}
 	; Add all the sorted items from the array
@@ -230,6 +230,20 @@ TV_CustomSort(item, iconNumber:=""){
 	}
 	; Return the new ID of the item
 	return TV_Modify(newID, "+Select +VisFirst")
+}
+; ==================================================================================================================================
+
+CenterMsgBox(P){
+	global MainHwnd
+	if (P == 1027){
+		WinGetPos, x1, y1,,, ahk_id %MainHwnd%
+		DetectHiddenWindows, On
+		if WinExist("ahk_class #32770"){
+			WinGetPos,,, w1, h1
+			WinMove, x1 + (235 - (w1/2)), y1 + (235 - (h1/2))
+		}
+	}
+	DetectHiddenWindows, Off
 }
 ; ==================================================================================================================================
 
