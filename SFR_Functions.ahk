@@ -164,9 +164,9 @@ CheckFiles(){
 SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as parameters
 	global MainHwnd
 	Gui, Main:+OwnDialogs
-	WinGetPos, x1, y1,,, ahk_id %MainHwnd%
+	WinGetPos, x1, y1, w1, h1, ahk_id %MainHwnd%
 	loop {
-		InputBox, name, Savefile Replacer, Name the directory,, 200, 150, x1 + 135, y1 + 160
+		InputBox, name, Savefile Replacer, Name the directory,, 200, 150, x1 + ((w1/2) - 100), y1 + ((h1/2) - 75)
 		; check if the name is already saved and warn the user (not case sensitive)
 		if (settings.SavedDirs.HasKey(name)) {
 			MsgBox, 48, Savefile Replacer, % "The name: """ name """ already exists please choose another one."
@@ -236,11 +236,12 @@ TV_CustomSort(item, iconNumber:=""){
 CenterMsgBox(P){
 	global MainHwnd
 	if (P == 1027){
-		WinGetPos, x1, y1,,, ahk_id %MainHwnd%
+		Process, Exist ; Get the PID of program, which is set to ErrorLevel
 		DetectHiddenWindows, On
-		if WinExist("ahk_class #32770"){
-			WinGetPos,,, w1, h1
-			WinMove, x1 + (235 - (w1/2)), y1 + (235 - (h1/2))
+		WinGetPos, x1, y1, w1, h1, ahk_id %MainHwnd%
+		if WinExist("ahk_class #32770 ahk_pid " ErrorLevel){
+			WinGetPos,,, w2, h2 ; Get dimensions of the MsgBox
+			WinMove, x1 + ((w1/2) - (w2/2)), y1 + ((h1/2) - (h2/2))
 		}
 	}
 	DetectHiddenWindows, Off
