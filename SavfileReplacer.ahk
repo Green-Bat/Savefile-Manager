@@ -29,11 +29,11 @@ SysGet, VirtualT, 77
 SysGet, VirtualW, 78
 SysGet, VirtualH, 79
 ; Do not allow the window to exceed the virtual dimensions of the screen
-if ((settings.XCoord + 470) > VirtualW)
+if ((settings.XCoord + 470) > (VirtualL + VirtualW))
 	settings.XCoord := VirtualW - 470
 else if (settings.XCoord < VirtualL)
 	settings.XCoord := VirtualL
-if ((settings.YCoord + 470) > VirtualH)
+if ((settings.YCoord + 470) > (VirtualT + VirtualH))
 	settings.YCoord := VirtualH - 470
 else if (settings.YCoord < VirtualT)
 	settings.YCoord := VirtualT
