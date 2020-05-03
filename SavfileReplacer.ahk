@@ -23,14 +23,20 @@ if !(IsObject(settingsfile)){
 }
 global settings := JSON.Load(settingsfile.Read())
 settingsfile.Close()
-; Get the virtual width and height
+; Get the virtual left, top, width and height
+SysGet, VirtualL, 76
+SysGet, VirtualT, 77
 SysGet, VirtualW, 78
 SysGet, VirtualH, 79
-; If the exisiting coords are greater than the combined widths and height of all monitors, center it in the main monitor
-if (settings.XCoord > VirtualW)
-	settings.XCoord := (A_ScreenWidth / 2)  - 235
-if (settings.YCoord > VirtualH)
-	settings.YCoord := (A_ScreenHeight / 2)  - 235
+; Do not allow the window to exceed the virtual dimensions of the screen
+if ((settings.XCoord + 470) > VirtualW)
+	settings.XCoord := VirtualW - 470
+else if (settings.XCoord < VirtualL)
+	settings.XCoord := VirtualL
+if ((settings.YCoord + 470) > VirtualH)
+	settings.YCoord := VirtualH - 470
+else if (settings.YCoord < VirtualT)
+	settings.YCoord := VirtualT
 
 OnMessage(0x44, "CenterMsgBox") ; Center any MsgBox before it appears
 SetTimer, CheckFiles, 1000 ; Timer to detect any changes the user might make to the folders manually.
@@ -137,9 +143,9 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 	; Let the user choose the name of the backup file, if they cancel the dialog (i.e., ErrorLevel = 1), return
 	Gui, TreeView, TVp
 	TV_GetText(SubFolder, parentID := TV_GetSelection())
-	WinGetPos, x, y,,, ahk_id %MainHwnd%
+	WinGetPos, x, y, w, h, ahk_id %MainHwnd%
 	Loop {
-		InputBox, BackupName, Savefile Replacer, Choose backup name,, 200, 150, x + 135, y + 160
+		InputBox, BackupName, Savefile Replacer, Choose backup name,, 200, 150, x + ((w/2) - 100), y + ((h/2) - 75)
 		childID := 0
 		if !(SubFIsHighlighted := InStr(SubFolder, ".sgd")) { ; If a sub-folder is highlighted check if the chosen backup name already exists in the sub-folder and not in the main directory
 			childID := TV_GetChild(parentID)
