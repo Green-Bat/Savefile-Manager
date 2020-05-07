@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.1 (Last updated 03/05/2020)
+*	1.4.2 (Last updated 07/05/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -192,7 +192,6 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pSaveDir "\" BackupName ".sgd", 1
 		UpdateTVp(BackupName . ".sgd")
 	}
-	SoundPlay, *-1
 	GuiControl, Focus, TVp
 	return
 ;**************************************************************************************************************************************************************************************
@@ -217,7 +216,6 @@ replace: ; Replace the currently highlighted file in the game file TreeView with
 	;**************************************************************************************************************************************
 	else ; Creates a copy of the personal file, renames it and overwrites the selected game file then updates the game files TreeView
 		FileCopy, % settings.pCurrentFilePaths[pID], % settings.gCurrentFilePaths[FileToReplace], 1
-	SoundPlay, *-1
 	UpdateTVg(FileToReplace)
 	return
 ;**************************************************************************************************************************************************************************************
