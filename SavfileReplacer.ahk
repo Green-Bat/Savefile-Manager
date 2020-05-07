@@ -5,13 +5,13 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.2 (Last updated 07/05/2020)
+*	1.4.3 (Last updated 07/05/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
 #NoEnv
 #NoTrayIcon
-#SingleInstance, Ignore
+#SingleInstance, Force
 ListLines, Off
 SetBatchLines, -1
 SetWorkingDir, % A_ScriptDir
@@ -22,6 +22,8 @@ if !(IsObject(settingsfile)){
 	ExitApp
 }
 global settings := JSON.Load(settingsfile.Read())
+pCheckFilesObj := Func("pCheckFiles").Bind(settings.pSaveDir)
+, gCheckFilesObj := Func("gCheckFiles").Bind(settings.gSaveDir)
 settingsfile.Close()
 ; Get the virtual left, top, width and height
 SysGet, VirtualL, 76
@@ -39,7 +41,8 @@ else if (settings.YCoord < VirtualT)
 	settings.YCoord := VirtualT
 
 OnMessage(0x44, "CenterMsgBox") ; Center any MsgBox before it appears
-SetTimer, CheckFiles, 1000 ; Timer to detect any changes the user might make to the folders manually.
+SetTimer, % pCheckFilesObj, 1000 ; Timer to detect any changes the user might make to the folders manually.
+SetTimer, % gCheckFilesObj, 1000
 
 ImageListID := IL_Create(2)
 IL_Add(ImageListID, "shell32.dll", 1)
@@ -133,6 +136,7 @@ remove_game: ; Deletes the currently selected game in the DropDown
 ;**************************************************************************************************************************************************************************************
 
 create_backup: ; Create a backup from the currently highlighted file in the game files TreeView
+	SetTimer, % pCheckFilesObj, Off
 	Gui +OwnDialogs
 	Gui, TreeView, TVg
 	if !(TV_GetSelection()) { ; Return if nothing is highlighted
@@ -188,15 +192,19 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 		else
 			TV_Modify(AddID, "+Select +VisFirst")
 		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[AddID] := settings.pCurrentFilePaths[parentID] "\" BackupName, 1
+		GuiControl, Focus, TVp
+		Sleep, 1000
+		SetTimer, % pCheckFilesObj, On
 	} else {	; Create a copy from the game file and put it in the current personal directory then update the personal file TreeView
 		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pSaveDir "\" BackupName ".sgd", 1
 		UpdateTVp(BackupName . ".sgd")
+		GuiControl, Focus, TVp
 	}
-	GuiControl, Focus, TVp
 	return
 ;**************************************************************************************************************************************************************************************
 
 replace: ; Replace the currently highlighted file in the game file TreeView with the currently highlighted file in the personal file TreeView
+	SetTimer, % gCheckFilesObj, Off
 	Gui +OwnDialogs
 	Gui, TreeView, TVg
 	if !(gID := TV_GetSelection()) {
