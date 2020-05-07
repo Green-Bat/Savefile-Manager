@@ -80,16 +80,16 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 	}
 	GuiControl, +Redraw, TVg
 	if (FileToReplace){
-		SetTimer, CheckFiles, Off
 		TV_Modify(IDToSelect, "+Select")
 		GuiControl, Focus, TVg
 		Sleep, 1000
-		SetTimer, CheckFiles, On
+		SetTimer, % gCheckFilesObj, On
 	}
 }
 ; ==================================================================================================================================
 
 UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
+	Thread, NoTimers
 	IDToSelect := ""
 	While (settings.pCurrentFilePaths.Count()) {
 		for l in settings.pCurrentFilePaths
@@ -108,11 +108,10 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 	}
 	GuiControl, +Redraw, TVp
 	if (BackupName){
-		SetTimer, CheckFiles, Off
 		TV_Modify(IDToSelect, "+Select +VisFirst" )
 		GuiControl, Focus, TVp
 		Sleep, 1000
-		SetTimer, CheckFiles, On
+		SetTimer, % pCheckFilesObj, On
 	} else {
 		TV_Modify(TV_GetNext())
 		GuiControl, Focus, TVp
@@ -147,15 +146,29 @@ UpdateDirs(key){ ; Function that is called when the user chooses an option in th
 }
 ; ==================================================================================================================================
 
-CheckFiles(){
-	gOldTime := pOldTime := A_Now ; Get the current time to compare it to the last modified time of the folders
+gCheckFiles(Folder){
+	gOldTime := A_Now ; Get the current time to compare it to the last modified time of the folders
 	Gui, Main:Default ; Ensures the corrct gui window will be acted on when the update functions are called
 
-	FileGetTime, gNewTime, % settings.gSaveDir
+	FileGetTime, gNewTime, % Folder
 	if ((gNewTime -= gOldTime, DHMS) > -2)
 		UpdateTVg()
+}
 
-	FileGetTime, pNewTime, % settings.pSaveDir
+pCheckFiles(Folder){
+	pOldTime := A_Now ; Get the current time to compare it to the last modified time of the folders
+	Gui, Main:Default ; Ensures the corrct gui window will be acted on when the update functions are called
+
+	Loop, Files, % Folder "\*.*", D
+	{
+		FileGetTime, pNewTIme, % A_LoopFileLongPath
+		if ((pNewTime -= pOldTIme, DHMS) > -2)
+			UpdateTVp()
+		pCheckFiles(A_LoopFileLongPath) ; Check the last modified time for all subfolders up to any depth
+		pOldTime := A_Now
+	}
+
+	FileGetTime, pNewTime, % Folder
 	if ((pNewTime -= pOldTime, DHMS) > -2)
 		UpdateTVp()
 }
