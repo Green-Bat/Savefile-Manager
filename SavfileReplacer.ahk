@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.3 (Last updated 07/05/2020)
+*	1.4.4 (Last updated 08/05/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -22,8 +22,8 @@ if !(IsObject(settingsfile)){
 	ExitApp
 }
 global settings := JSON.Load(settingsfile.Read())
-pCheckFilesObj := Func("pCheckFiles").Bind(settings.pSaveDir)
-, gCheckFilesObj := Func("gCheckFiles").Bind(settings.gSaveDir)
+	, pCheckFilesObj := Func("pCheckFiles").Bind(settings.pSaveDir)
+	, gCheckFilesObj := Func("gCheckFiles").Bind(settings.gSaveDir)
 settingsfile.Close()
 ; Get the virtual left, top, width and height
 SysGet, VirtualL, 76
@@ -214,7 +214,7 @@ replace: ; Replace the currently highlighted file in the game file TreeView with
 	TV_GetText(FileToReplace, gID)
 	Gui, TreeView, TVp
 	TV_GetText(FileToReplaceWith, pID := TV_GetSelection())
-	if !(pID && InStr(FileToReplaceWith, ".sgd", true)) {
+	if !(pID && InStr(FileToReplaceWith, ".sgd") && !(InStr(FileExist(settings.pCurrentFilePaths[pID]), "D"))) {
 		MsgBox, 48, Savefile Replacer, Select a personal file to replace with
 		return
 	}
