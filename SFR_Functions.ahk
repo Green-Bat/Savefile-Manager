@@ -134,6 +134,31 @@ AddSubfolders(Folder, Parent:=0){
 }
 ; ==================================================================================================================================
 
+UpdateFolder(Folder){
+
+	for ID, path in settings.pCurrentFilePaths {
+		if (Folder == path)
+			Parent := ID
+	}
+
+	StartingID := TV_GetChild(Parent)
+	while(StartingID){
+		settings.pCurrentFilePaths.Delete(StartingID)
+		OldID := StartingID
+		, StartingID := TV_GetNext(StartingID)
+		TV_Delete(OldID)
+	}
+
+	Loop, Files, % Folder "\*.*", D
+		settings.pCurrentFilePaths[TV_Add(A_LoopFileName, Parent, "Icon2")] := A_LoopFileLongPath
+	Loop, Files, % Folder "\*.sgd"
+		settings.pCurrentFilePaths[TV_Add(A_LoopFileName, Parent, "Icon1")] := A_LoopFileLongPath
+
+	TV_Modify(Parent, "+Select +Expand")
+	Sleep, 700
+}
+; ==================================================================================================================================
+
 UpdateDirs(key){ ; Function that is called when the user chooses an option in the saved games DropDownList
 	; Takes the choice the user made as a parameter to use to retrieve the path to the saved directories
 	settings.gSaveDir := settings.SavedDirs[key][1]
@@ -163,7 +188,7 @@ pCheckFiles(Folder){
 	{
 		FileGetTime, pNewTIme, % A_LoopFileLongPath
 		if ((pNewTime -= pOldTIme, DHMS) > -2)
-			UpdateTVp()
+			UpdateFolder(A_LoopFileLongPath)
 		pCheckFiles(A_LoopFileLongPath) ; Check the last modified time for all subfolders up to any depth
 		pOldTime := A_Now
 	}
