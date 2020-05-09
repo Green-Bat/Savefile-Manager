@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.4 (Last updated 08/05/2020)
+*	1.4.6 (Last updated 08/05/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -184,21 +184,12 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 		return
 	; If a subfolder is highlighted add the backup file to it instead of the root directory
 	if !(SubFIsHighlighted){
-		AddID := TV_Add(BackupName ".sgd", parentID, "Icon1")
-		TV_GetText(BackupName, AddID)
-		TV_GetText(prevName, TV_GetPrev(AddID))
-		if (BackupName < prevName)
-			AddID := TV_CustomSort(AddID, 1)
-		else
-			TV_Modify(AddID, "+Select +VisFirst")
-		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[AddID] := settings.pCurrentFilePaths[parentID] "\" BackupName, 1
-		GuiControl, Focus, TVp
-		Sleep, 1000
+		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[parentID] "\" BackupName . ".sgd", 1
+		UpdateFolder(settings.pCurrentFilePaths[parentID], BackupName . ".sgd")
 		SetTimer, % pCheckFilesObj, On
 	} else {	; Create a copy from the game file and put it in the current personal directory then update the personal file TreeView
 		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pSaveDir "\" BackupName ".sgd", 1
 		UpdateTVp(BackupName . ".sgd")
-		GuiControl, Focus, TVp
 	}
 	return
 ;**************************************************************************************************************************************************************************************
