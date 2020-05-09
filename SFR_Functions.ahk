@@ -89,7 +89,6 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 ; ==================================================================================================================================
 
 UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
-	Thread, NoTimers
 	IDToSelect := ""
 	While (settings.pCurrentFilePaths.Count()) {
 		for l in settings.pCurrentFilePaths
@@ -134,13 +133,13 @@ AddSubfolders(Folder, Parent:=0){
 }
 ; ==================================================================================================================================
 
-UpdateFolder(Folder){
-
+UpdateFolder(Folder, FileName:=""){ ; Updates a specific folder
+	; Get the ID of the folder
 	for ID, path in settings.pCurrentFilePaths {
 		if (Folder == path)
 			Parent := ID
 	}
-
+	; Delete all of its children and delete it from the settings
 	StartingID := TV_GetChild(Parent)
 	while(StartingID){
 		settings.pCurrentFilePaths.Delete(StartingID)
@@ -148,13 +147,24 @@ UpdateFolder(Folder){
 		, StartingID := TV_GetNext(StartingID)
 		TV_Delete(OldID)
 	}
-
+	; Readd everything
 	Loop, Files, % Folder "\*.*", D
 		settings.pCurrentFilePaths[TV_Add(A_LoopFileName, Parent, "Icon2")] := A_LoopFileLongPath
 	Loop, Files, % Folder "\*.sgd"
-		settings.pCurrentFilePaths[TV_Add(A_LoopFileName, Parent, "Icon1")] := A_LoopFileLongPath
+	{
+		AddedID := TV_Add(A_LoopFileName, Parent, "Icon1")
+		settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath
+		if (FileName == A_LoopFileName)
+			IDToSelect := AddedID
+	}
 
-	TV_Modify(Parent, "+Select +Expand")
+	if (FileName){
+		TV_Modify(IDToSelect, "+Select +VisFirst" )
+		GuiControl, Focus, TVp
+	} else {
+		; Expand the folder and select it after everything is done
+		TV_Modify(Parent, "+Select +Expand")
+	}
 	Sleep, 700
 }
 ; ==================================================================================================================================
@@ -219,55 +229,6 @@ SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as
 	, settings.pSaveDir := pdir
 	settings.SavedDirs[name] := [gdir, pdir] ; Use the name as a key with it's value being a small array that holds both directories
 	return name
-}
-; ==================================================================================================================================
-
-TV_CustomSort(item, iconNumber:=""){
-	Gui, TreeView, TVp
-	parent := TV_GetParent(item)
-	, child := TV_GetChild(parent) ; Gets the topmost child
-	, newID := "" ; Will hold the new id of the item
-	, temp := [] ; Array for sorting
-	, tempPaths := [] ; Array for storing the file paths temporarily
-	, NotFound := 1
-	TV_GetText(newItem, item)
-	; If item is only one in list, return
-	if !(TV_GetPrev(item))
-		return
-
-	TV_Delete(item) 
-	; Add all the children to the array
-	while(child){
-		TV_GetText(childName, child)
-		; Ignore folders
-		if !(InStr(childName, ".sgd", true)){
-			child := TV_GetNext(child)
-			continue
-		}
-		; If the item's name comes first alphabetically add it first
-		if ( NotFound && (newItem < childName)){
-			temp.Push(newItem)
-			tempPaths.Push(" ")
-			temp.Push(childName)
-			NotFound := !NotFound
-		} else {
-			temp.Push(childName)
-		}
-		tempPaths.Push(settings.pCurrentFilePaths[child])
-		settings.pCurrentFilePaths.Delete(child)
-		oldChild := child
-		, child := TV_GetNext(child) ; Get the next child
-		TV_Delete(oldChild) ; Delete the previous  child
-	}
-	; Add all the sorted items from the array
-	for index, val in temp {
-		id := TV_Add(val, parent, "icon" iconNumber)
-		settings.pCurrentFilePaths[id] := tempPaths[index] ; Read the file paths with their new IDs
-		if (val == newItem) ; Get the new ID of the item
-			newID := id
-	}
-	; Return the new ID of the item
-	return TV_Modify(newID, "+Select +VisFirst")
 }
 ; ==================================================================================================================================
 
