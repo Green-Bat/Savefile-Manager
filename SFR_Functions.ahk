@@ -133,14 +133,19 @@ AddSubfolders(Folder, Parent:=0){
 }
 ; ==================================================================================================================================
 
-UpdateFolder(Folder, FileName:=""){ ; Updates a specific folder
-	; Get the ID of the folder
-	for ID, path in settings.pCurrentFilePaths {
-		if (Folder == path)
-			Parent := ID
+UpdateFolder(Folder, FolderID:="", FileName:=""){ ; Updates a specific folder
+	if (FolderID){
+		Parent := FolderID
+	} else {
+		; Get the ID of the folder
+		for ID, path in settings.pCurrentFilePaths {
+			if (Folder == path)
+				Parent := ID
+		}
 	}
-	; Delete all of its children and delete it from the settings
 	StartingID := TV_GetChild(Parent)
+
+	; Delete all of its children and delete it from the settings
 	while(StartingID){
 		settings.pCurrentFilePaths.Delete(StartingID)
 		OldID := StartingID
