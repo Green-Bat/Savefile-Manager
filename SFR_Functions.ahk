@@ -68,6 +68,8 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 	}
 	; Empty the TreeView
 	Gui, TreeView, TVg
+	if !(FileToReplace)
+		TV_GetText(FileToReplace, TV_GetSelection())
 	TV_Delete()
 	; Refill the TreeView with the files of the current directory and store their full paths
 	GuiControl, -Redraw, TVg ; for performance purposes
