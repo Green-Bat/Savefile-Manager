@@ -62,6 +62,7 @@ SelectFolderEx(StartingFolder := "", Prompt := "", OwnerHwnd := 0, OkBtnLabel :=
 ; ==================================================================================================================================
 
 UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
+	IDToSelect := ""
 	While (settings.gCurrentFilePaths.Count()) { ; delete all the current file paths
 		for l in settings.gCurrentFilePaths
 			settings.gCurrentFilePaths.Delete(l)
@@ -81,11 +82,14 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 			IDToSelect := AddedID
 	}
 	GuiControl, +Redraw, TVg
-	if (FileToReplace){
+	if (FileToReplace && IDToSelect){
 		TV_Modify(IDToSelect, "+Select")
 		GuiControl, Focus, TVg
 		Sleep, 1000
 		SetTimer, % gCheckFilesObj, On
+	} else {
+		TV_Modify(TV_GetNext())
+		GuiControl, Focus, TVp
 	}
 }
 ; ==================================================================================================================================
