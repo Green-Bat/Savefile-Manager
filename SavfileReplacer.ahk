@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.7 (Last updated 10/05/2020)
+*	1.4.8 (Last updated 24/08/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -111,6 +111,7 @@ add_game: ; Adds a game and saves it
 	GuiControl, Text, gtext, % "Current game directory: " settings.gSaveDir
 	UpdateTVg()
 	UpdateTVp()
+	Save()
 	return
 ;**************************************************************************************************************************************************************************************
 
@@ -132,6 +133,7 @@ remove_game: ; Deletes the currently selected game in the DropDown
 	; Update the the text
 	GuiControl, Text, ptext, % "Current personal directory: "
 	GuiControl, Text, gtext, % "Current game directory: "
+	Save()
 	return
 ;**************************************************************************************************************************************************************************************
 
@@ -229,24 +231,12 @@ change_dirs: ; Runs when the user changes the DropDownList choice
 		return
 	UpdateDirs(c_Dirs)
 	settings.LastChosenGame := ChosenNum
+	Save()
 	return
 ;**************************************************************************************************************************************************************************************
 
 MainGuiClose:
-	settingsfile := FileOpen(A_ScriptDir "\settings.JSON" , "w")
-	if !(IsObject(settingsfile)){
-		MsgBox, 16, Savefile Replacer, 
-		( LTrim
-		ERROR: Failed to load settings file! Please make sure it's in the correct directory.
-		You can use Ctrl+Esc to force close the program, but any changes you made will not be saved.
-		)
-		return
-	}
-	WinGetPos, GuiX, GuiY,,, ahk_id %MainHwnd%
-	settings.XCoord := GuiX, settings.YCoord := GuiY
-	settingsfile.Seek(0)
-	settingsfile.Write((JSON.Dump(settings,, 4)))
-	settingsfile.Close()
+	Save()
 	ExitApp
 
 #If WinActive("ahk_id " MainHwnd)
