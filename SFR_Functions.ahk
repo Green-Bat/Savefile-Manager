@@ -243,6 +243,25 @@ SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as
 }
 ; ==================================================================================================================================
 
+Save(){
+	global MainHwnd, settingsfile
+	settingsfile := FileOpen(A_ScriptDir "\settings.JSON" , "w")
+	if !(IsObject(settingsfile)){
+		MsgBox, 16, Savefile Replacer, 
+		( LTrim
+		ERROR: Failed to load settings file! Please make sure it's in the correct directory.
+		You can use Ctrl+Esc to force close the program.
+		)
+		return
+	}
+	WinGetPos, GuiX, GuiY,,, ahk_id %MainHwnd%
+	settings.XCoord := GuiX, settings.YCoord := GuiY
+	settingsfile.Seek(0)
+	settingsfile.Write((JSON.Dump(settings,, 4)))
+	settingsfile.Close()
+}
+; ==================================================================================================================================
+
 CenterMsgBox(P){
 	global MainHwnd
 	if (P == 1027){
