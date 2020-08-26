@@ -140,6 +140,7 @@ AddSubfolders(Folder, Parent:=0){
 ; ==================================================================================================================================
 
 UpdateFolder(Folder, FolderID:="", FileName:=""){ ; Updates a specific folder
+	Parent := 0
 	if (FolderID){
 		Parent := FolderID
 	} else {
@@ -149,6 +150,8 @@ UpdateFolder(Folder, FolderID:="", FileName:=""){ ; Updates a specific folder
 				Parent := ID
 		}
 	}
+	if !(Parent)
+		return
 	StartingID := TV_GetChild(Parent)
 
 	; Delete all of its children and delete it from the settings
@@ -208,8 +211,9 @@ pCheckFiles(Folder){
 	Loop, Files, % Folder "\*.*", D
 	{
 		FileGetTime, pNewTIme, % A_LoopFileLongPath
-		if ((pNewTime -= pOldTIme, DHMS) > -2)
+		if ((pNewTime -= pOldTIme, DHMS) > -2){
 			UpdateFolder(A_LoopFileLongPath)
+		}
 		pCheckFiles(A_LoopFileLongPath) ; Check the last modified time for all subfolders up to any depth
 		pOldTime := A_Now
 	}
