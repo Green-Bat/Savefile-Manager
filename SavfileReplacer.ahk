@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.8 (Last updated 24/08/2020)
+*	1.4.9 (Last updated 26/08/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -185,7 +185,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 	if (ErrorLevel == 1)
 		return
 	; If a subfolder is highlighted add the backup file to it instead of the root directory
-	if !(SubFIsHighlighted){
+	if (!SubFIsHighlighted && SubFolder){
 		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[parentID] "\" BackupName . ".sgd", 1
 		UpdateFolder(settings.pCurrentFilePaths[parentID], parentID, BackupName . ".sgd")
 		SetTimer, % pCheckFilesObj, On
@@ -215,8 +215,13 @@ replace: ; Replace the currently highlighted file in the game file TreeView with
 	if (InStr(FileToReplace, "BAK"))
 		SpecialCaseAK(FileToReplace, settings.pCurrentFilePaths[pID])
 	;**************************************************************************************************************************************
-	else ; Creates a copy of the personal file, renames it and overwrites the selected game file then updates the game files TreeView
-		FileCopy, % settings.pCurrentFilePaths[pID], % settings.gCurrentFilePaths[FileToReplace], 1
+	else { ; Creates a copy of the personal file, renames it and overwrites the selected game file then updates the game files TreeView
+		try
+			FileCopy, % settings.pCurrentFilePaths[pID], % settings.gCurrentFilePaths[FileToReplace], 1
+		catch e {
+			MsgBox, 48, , % e.Message " " e.What
+		}
+	}
 	UpdateTVg(FileToReplace)
 	return
 ;**************************************************************************************************************************************************************************************
