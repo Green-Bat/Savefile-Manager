@@ -184,6 +184,7 @@ UpdateFolder(Folder, FolderID:="", FileName:=""){ ; Updates a specific folder
 ; ==================================================================================================================================
 
 UpdateDirs(key){ ; Function that is called when the user chooses an option in the saved games DropDownList
+	global pCheckFilesObj, gCheckFilesObj
 	; Takes the choice the user made as a parameter to use to retrieve the path to the saved directories
 	settings.gSaveDir := settings.SavedDirs[key][1]
 	, settings.pSaveDir := settings.SavedDirs[key][2]
@@ -192,6 +193,12 @@ UpdateDirs(key){ ; Function that is called when the user chooses an option in th
 	GuiControl, Text, gtext, % "Current game directory: " settings.gSaveDir
 	UpdateTVg()
 	UpdateTVp()
+	SetTimer, % pCheckFilesObj, Off
+	SetTimer, % gCheckFilesObj, Off
+	pCheckFilesObj := Func("pCheckFiles").Bind(settings.pSaveDir)
+	, gCheckFilesObj := Func("gCheckFiles").Bind(settings.gSaveDir)
+	SetTimer, % pCheckFilesObj, 1000 
+	SetTimer, % gCheckFilesObj, 1000
 }
 ; ==================================================================================================================================
 
