@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.9 (Last updated 26/08/2020)
+*	1.4.11.1 (Last updated 26/01/2020)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -152,6 +152,8 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 	WinGetPos, x, y, w, h, ahk_id %MainHwnd%
 	Loop {
 		InputBox, BackupName, Savefile Replacer, Choose backup name,, 200, 150, x + ((w/2) - 100), y + ((h/2) - 75)
+		if (ErrorLevel)
+			break
 		childID := 0
 		if !(SubFIsHighlighted := InStr(SubFolder, ".sgd")) { ; If a sub-folder is highlighted check if the chosen backup name already exists in the sub-folder and not in the main directory
 			childID := TV_GetChild(parentID)
@@ -181,9 +183,12 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 				}
 			}
 		}
-	} until (BackupName || ErrorLevel)
+	} until (BackupName)
 	if (ErrorLevel == 1)
 		return
+
+	if (InStr(FileToBackup, "BAK"))
+		FileToBackup := GetUpToDateFile(SubStr(FileToBackup,1,10))
 	; If a subfolder is highlighted add the backup file to it instead of the root directory
 	if (!SubFIsHighlighted && SubFolder){
 		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[parentID] "\" BackupName . ".sgd", 1
