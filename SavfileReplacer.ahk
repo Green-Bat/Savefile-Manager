@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.11.1 (Last updated 26/01/2020)
+*	1.4.11.1 (Last updated 26/01/2021)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
