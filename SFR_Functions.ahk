@@ -339,13 +339,11 @@ GetUpToDateFile(File){
 			break
 		FileGetTime, time, % settings.gCurrentFilePaths[File1]
 		FileGetTime, time2, % settings.gCurrentFilePaths[File2]
-		MsgBox, % (time2 -= time, SMHD)
 		if ((time2 -= time, SMHD) > 0){
 			UpToDateFile := File2
 		} else {
 			UpToDateFile := File1
 		}
 	}
-	MsgBox, % UpToDateFile
 	return UpToDateFile
 }
