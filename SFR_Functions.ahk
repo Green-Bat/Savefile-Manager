@@ -89,7 +89,6 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 		SetTimer, % gCheckFilesObj, On
 	} else {
 		TV_Modify(TV_GetNext())
-		GuiControl, Focus, TVp
 	}
 }
 ; ==================================================================================================================================
@@ -237,13 +236,15 @@ SaveDir(gdir, pdir){ ; takes currently selected game and personal directories as
 	WinGetPos, x1, y1, w1, h1, ahk_id %MainHwnd%
 	loop {
 		InputBox, name, Savefile Replacer, Name the directory,, 200, 150, x1 + ((w1/2) - 100), y1 + ((h1/2) - 75)
+		if (ErrorLevel)
+			break
 		; check if the name is already saved and warn the user (not case sensitive)
 		if (settings.SavedDirs.HasKey(name)) {
 			MsgBox, 48, Savefile Replacer, % "The name: """ name """ already exists please choose another one."
 			name := ""
 			continue
 		}
-	} until (name || ErrorLevel)
+	} until (name)
 	if (ErrorLevel == 1)
 		return ""
 	; Update the directories in the settings
@@ -286,7 +287,7 @@ CenterMsgBox(P){
 	}
 	DetectHiddenWindows, Off
 }
-; ==================================================================================================================================
+; ====================================================| - ARKHAM KNIGHT SPECIAL CASE - |==============================================================================
 
 SpecialCaseAK(FileName, FileToReplaceWith){
 	if (InStr(FileName, "0x")){
@@ -296,6 +297,8 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save0x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save0x2.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save0x2.sgd"], 1
+		if (settings.gCurrentFilePaths.HasKey("BAK1Save0x3.sgd"))
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save0x3.sgd"], 1
 	} else if (InStr(FileName, "1x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save1x0.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x0.sgd"], 1
@@ -303,6 +306,8 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save1x2.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x2.sgd"], 1
+		if (settings.gCurrentFilePaths.HasKey("BAK1Save1x3.sgd"))
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x3.sgd"], 1
 	} else if (InStr(FileName, "2x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x0.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x0.sgd"], 1
@@ -310,6 +315,8 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x2.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x2.sgd"], 1
+		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x3.sgd"))
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x3.sgd"], 1
 	} else if (InStr(FileName, "3x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x0.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x0.sgd"], 1
@@ -317,5 +324,28 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x2.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x2.sgd"], 1
+		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x3.sgd"))
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x3.sgd"], 1
 	}
+}
+
+GetUpToDateFile(File){
+	UpToDateFile := ""
+	Loop, 3
+	{
+		File1:= File . (A_Index-1) . ".sgd"
+		File2:= File . (A_Index) . ".sgd"
+		if !(settings.gCurrentFilePaths.HasKey(File2))
+			break
+		FileGetTime, time, % settings.gCurrentFilePaths[File1]
+		FileGetTime, time2, % settings.gCurrentFilePaths[File2]
+		MsgBox, % (time2 -= time, SMHD)
+		if ((time2 -= time, SMHD) > 0){
+			UpToDateFile := File2
+		} else {
+			UpToDateFile := File1
+		}
+	}
+	MsgBox, % UpToDateFile
+	return UpToDateFile
 }
