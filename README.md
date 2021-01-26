@@ -14,7 +14,9 @@ If a sub-folder is highlighted the backup file will go in the sub-folder instead
 main folder.
 
 \*Specifically for Batman: Arkham Knight it will also overwrite any of the game's backup savefiles for that specific slot.\
-For example: if you replace `BAK1Save0x0.sgd` it will also overwrite `BAK1Save0x1.sgd` and `BAK1Save0x2.sgd`
+For example: if you replace `BAK1Save0x1.sgd` it will also overwrite `BAK1Save0x2.sgd` and `BAK1Save0x3.sgd`
+
+\*When backing up a savefile for Arkham Knight it does not matter which one you choose, the program will automatically choose the most recent one.
 
 ## \*\*Important Note
 Keep the main exe and the `settings.JSON` file in the same directory.\
