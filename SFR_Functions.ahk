@@ -84,7 +84,6 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 	GuiControl, +Redraw, TVg
 	if (FileToReplace && IDToSelect){
 		TV_Modify(IDToSelect, "+Select")
-		GuiControl, Focus, TVg
 		Sleep, 1000
 		SetTimer, % gCheckFilesObj, On
 	} else {
@@ -118,7 +117,6 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 		SetTimer, % pCheckFilesObj, On
 	} else {
 		TV_Modify(TV_GetNext())
-		GuiControl, Focus, TVp
 	}
 }
 
