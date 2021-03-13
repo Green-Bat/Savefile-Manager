@@ -295,8 +295,6 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save0x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save0x2.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save0x2.sgd"], 1
-		if (settings.gCurrentFilePaths.HasKey("BAK1Save0x3.sgd"))
-			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save0x3.sgd"], 1
 	} else if (InStr(FileName, "1x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save1x0.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x0.sgd"], 1
@@ -304,8 +302,6 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save1x2.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x2.sgd"], 1
-		if (settings.gCurrentFilePaths.HasKey("BAK1Save1x3.sgd"))
-			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save1x3.sgd"], 1
 	} else if (InStr(FileName, "2x")){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x0.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x0.sgd"], 1
@@ -313,35 +309,29 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x2.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x2.sgd"], 1
-		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x3.sgd"))
-			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x3.sgd"], 1
-	} else if (InStr(FileName, "3x")){
-		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x0.sgd"))
-			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x0.sgd"], 1
-		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x1.sgd"))
-			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x1.sgd"], 1
-		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x2.sgd"))
-			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x2.sgd"], 1
-		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x3.sgd"))
-			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x3.sgd"], 1
 	}
 }
 
 GetUpToDateFile(File){
 	UpToDateFile := ""
-	Loop, 3
-	{
-		File1:= File . (A_Index-1) . ".sgd"
-		File2:= File . (A_Index) . ".sgd"
-		if !(settings.gCurrentFilePaths.HasKey(File2))
-			break
-		FileGetTime, time, % settings.gCurrentFilePaths[File1]
-		FileGetTime, time2, % settings.gCurrentFilePaths[File2]
-		if ((time2 -= time, SMHD) > 0){
-			UpToDateFile := File2
-		} else {
-			UpToDateFile := File1
-		}
+	, temp := ""
+	, File1 := File . "0.sgd"
+	, File2 := File . "1.sgd"
+	, File3 := File . "2.sgd"
+	if !(settings.gCurrentFilePaths.HasKey(File1))
+		return UpToDateFile := File2
+	FileGetTime, time1, % settings.gCurrentFilePaths[File1]
+	FileGetTime, time2, % settings.gCurrentFilePaths[File2]
+	FileGetTime, time3, % settings.gCurrentFilePaths[File3]
+	temp := time2
+	if ((time2 -= time1, SMHD) > 0){
+		UpToDateFile := File2
+	} else if (((temp -= time1, SMHD) == 0) && !settings.gCurrentFilePaths.HasKey(File3)){
+		UpToDateFile := File1
+	} else if ((time1 -= time3, SMHD) > 0) {
+		UpToDateFile := File1
+	} else {
+		UpToDateFile := File3
 	}
 	return UpToDateFile
 }
