@@ -308,7 +308,14 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x1.sgd"))
 			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x1.sgd"], 1
 		if (settings.gCurrentFilePaths.HasKey("BAK1Save2x2.sgd"))
-			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x2.sgd"], 1
+	 		FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save2x2.sgd"], 1
+	} else if (InStr(FileName, "3x")){
+		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x0.sgd"))
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x0.sgd"], 1
+		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x1.sgd"))
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x1.sgd"], 1
+		if (settings.gCurrentFilePaths.HasKey("BAK1Save3x2.sgd"))
+			FileCopy, % FileToReplaceWith, % settings.gCurrentFilePaths["BAK1Save3x2.sgd"], 1
 	}
 }
 
