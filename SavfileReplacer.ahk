@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.11.1 (Last updated 26/01/2021)
+*	1.4.11.6 (Last updated 15/04/2021)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -116,7 +116,15 @@ add_game: ; Adds a game and saves it
 ;**************************************************************************************************************************************************************************************
 
 remove_game: ; Deletes the currently selected game in the DropDown
+	Gui +OwnDialogs
 	Gui, Main:Submit, NoHide
+	if !(c_Dirs){
+		MsgBox, 48, No Games, You currently have no games to remove
+		return
+	}
+	MsgBox, 308, DELETING GAME!!!, % "Are you sure you want to remove """ c_Dirs """ from your current games list?"
+	IfMsgBox, No
+		return
 	settings.pSaveDir := settings.gSaveDir := settings.LastChosenGame := ""
 	, settings.pCurrentFilePaths := settings.gCurrentFilePaths := {}
 	settings.SavedDirs.Delete(c_Dirs)
@@ -133,6 +141,7 @@ remove_game: ; Deletes the currently selected game in the DropDown
 	; Update the the text
 	GuiControl, Text, ptext, % "Current personal directory: "
 	GuiControl, Text, gtext, % "Current game directory: "
+	GuiControl, Choose, c_Dirs, |1
 	Save()
 	return
 ;**************************************************************************************************************************************************************************************
