@@ -84,7 +84,6 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 	GuiControl, +Redraw, TVg
 	if (FileToReplace && IDToSelect){
 		TV_Modify(IDToSelect, "+Select")
-		Sleep, 1000
 		SetTimer, % gCheckFilesObj, On
 	} else {
 		TV_Modify(TV_GetNext())
@@ -137,6 +136,7 @@ AddSubfolders(Folder, Parent:=0){
 ; ==================================================================================================================================
 
 UpdateFolder(Folder, FolderID:="", FileName:=""){ ; Updates a specific folder
+	Gui, TreeView, TVp
 	Parent := 0
 	if (FolderID){
 		Parent := FolderID
@@ -176,7 +176,6 @@ UpdateFolder(Folder, FolderID:="", FileName:=""){ ; Updates a specific folder
 		; Expand the folder and select it after everything is done
 		TV_Modify(Parent, "+Select +Expand")
 	}
-	Sleep, 700
 }
 ; ==================================================================================================================================
 
@@ -222,7 +221,7 @@ pCheckFiles(Folder){
 		pOldTime := A_Now
 	}
 
-	FileGetTime, pNewTime, % Folder
+	FileGetTime, pNewTime, % settings.pSaveDir
 	if ((pNewTime -= pOldTime, DHMS) > -2)
 		UpdateTVp()
 }
