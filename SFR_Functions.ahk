@@ -78,7 +78,7 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 	{
 		AddedID := TV_Add(A_LoopFileName,, "Icon1")
 		, settings.gCurrentFilePaths[A_LoopFileName] := A_LoopFileLongPath ; Save the file paths and use their names as keys
-		if (A_LoopFileName == FileToReplace) ; Get id of the game save to have to be selected after the TreeView is drawn
+		if (A_LoopFileName = FileToReplace) ; Get id of the game save to have to be selected after the TreeView is drawn
 			IDToSelect := AddedID
 	}
 	GuiControl, +Redraw, TVg
@@ -92,7 +92,8 @@ UpdateTVg(FileToReplace:=""){ ; Updates the TreeView for the game directory
 ; ==================================================================================================================================
 
 UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
-	IDToSelect := ""
+	IDToSelect := FUnsorted := ""
+	, temp := [], temppath := {}
 	While (settings.pCurrentFilePaths.Count()) {
 		for l in settings.pCurrentFilePaths
 			settings.pCurrentFilePaths.Delete(l)
@@ -103,11 +104,20 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 	AddSubfolders(settings.pSaveDir)
 	Loop, Files, % settings.pSaveDir "\*.sgd"
 	{
-		AddedID := TV_Add(A_LoopFileName,, "Icon1")
-		, settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath ; Save the file paths and use their IDs as keys
-		if (A_LoopFileName == BackupName) ; Get id of the file to have it be selected after the TreeView is drawn
+		FUnsorted .= A_LoopFileName . ","
+		temppath[A_LoopFileName] := A_LoopFileLongPath
+	}
+
+	; Sorting
+	temp := CustomSort(FUnsorted)
+
+	for k, v in temp {
+		AddedID := TV_Add(v,, "Icon1")
+		, settings.pCurrentFilePaths[AddedID] := temppath[v] ; Save the file paths and use their IDs as keys
+		if (temp[k] = BackupName) ; Get id of the file to have it be selected after the TreeView is drawn
 			IDToSelect := AddedID
 	}
+
 	GuiControl, +Redraw, TVp
 	if (BackupName){
 		TV_Modify(IDToSelect, "+Select +VisFirst" )
@@ -122,25 +132,30 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 AddSubfolders(Folder, Parent:=0){
 	Loop, Files, % Folder "\*.*", D
 	{
+		FUnsorted := "", temp := [], temppath := {}
 		SubfolderID := TV_Add(A_LoopFileName, Parent, "Icon2")
 		, settings.pCurrentFilePaths[SubfolderID] := A_LoopFileLongPath
 		; Recursively add each subfolder and it's contents to the tree
 		AddSubfolders(A_LoopFileLongPath, SubfolderID)
 		Loop, Files, % A_LoopFileLongPath "\*.sgd"
 		{
-			AddedID := TV_Add(A_LoopFileName, SubfolderID, "Icon1")
-			, settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath			
+			FUnsorted .= A_LoopFileName . ","
+			temppath[A_LoopFileName] := A_LoopFileLongPath
+		}
+		temp := CustomSort(FUnsorted)
+
+		for k, v in temp {
+			AddedID := TV_Add(v, SubfolderID, "Icon1")
+			, settings.pCurrentFilePaths[AddedID] := temppath[v] ; Save the file paths and use their IDs as keys
 		}
 	}
 }
 ; ==================================================================================================================================
 
-UpdateFolder(Folder, FolderID:="", FileName:=""){ ; Updates a specific folder
+UpdateFolder(Folder, Parent:=0, FileName:=""){ ; Updates a specific folder
+	IDToSelect := FUnsorted := "", temp := [], temppath := {}
 	Gui, TreeView, TVp
-	Parent := 0
-	if (FolderID){
-		Parent := FolderID
-	} else {
+	if !(Parent) {
 		; Get the ID of the folder
 		for ID, path in settings.pCurrentFilePaths {
 			if (Folder == path)
@@ -152,20 +167,25 @@ UpdateFolder(Folder, FolderID:="", FileName:=""){ ; Updates a specific folder
 	StartingID := TV_GetChild(Parent)
 
 	; Delete all of its children and delete it from the settings
-	while(StartingID){
+	while (StartingID){
 		settings.pCurrentFilePaths.Delete(StartingID)
 		OldID := StartingID
 		, StartingID := TV_GetNext(StartingID)
 		TV_Delete(OldID)
 	}
-	; Readd everything
-	Loop, Files, % Folder "\*.*", D
-		settings.pCurrentFilePaths[TV_Add(A_LoopFileName, Parent, "Icon2")] := A_LoopFileLongPath
-	Loop, Files, % Folder "\*.sgd"
+	; Re-add everything
+	AddSubfolders(Folder, Parent)
+	Loop, Files, % A_LoopFileLongPath "\*.sgd"
 	{
-		AddedID := TV_Add(A_LoopFileName, Parent, "Icon1")
-		settings.pCurrentFilePaths[AddedID] := A_LoopFileLongPath
-		if (FileName == A_LoopFileName)
+		FUnsorted .= A_LoopFileName . ","
+		temppath[A_LoopFileName] := A_LoopFileLongPath
+	}
+	temp := CustomSort(FUnsorted)
+
+	for k, v in temp {
+		AddedID := TV_Add(v, Parent, "Icon1")
+		, settings.pCurrentFilePaths[AddedID] := temppath[v]
+		if (temp[k] = FileName)
 			IDToSelect := AddedID
 	}
 
@@ -176,6 +196,69 @@ UpdateFolder(Folder, FolderID:="", FileName:=""){ ; Updates a specific folder
 		; Expand the folder and select it after everything is done
 		TV_Modify(Parent, "+Select +Expand")
 	}
+}
+; ==================================================================================================================================
+
+CustomSort(Unsorted){
+	SortedArr := [], arr := []
+	, Sorted := ""
+	,  CharIndex := DigitIndex := i := j := 0
+
+	; Sort numerically using built-in sort command
+	; This command sorts numeric items at the bottom of the list
+	; so more sorting needs to be done
+	Sort, Unsorted, N D,
+	Loop, Parse, Unsorted, % ","
+		arr.Push(A_LoopField)
+	arr.Pop()
+
+	; Find position of the first item that starts with a character
+	; and the first item that starts with a number
+	for k,v in arr {
+		s := SubStr(v, 1, 1)
+		if !(CharIndex){
+			if s is alpha
+				CharIndex := k
+		} else if !(DigitIndex){
+			if s is integer
+			{
+				if (s > 0)
+					DigitIndex := k
+			}
+		}
+	}
+
+	; if there are numbered items shift them up the list
+	if (DigitIndex){
+		for k,v in arr {
+			; place numbered items in new list starting from index of non-numbered items
+			if (k >= CharIndex && k <= arr.Length() - DigitIndex + CharIndex){
+				SortedArr[k] := arr[DigitIndex + i]
+				i++
+			} else if (k < CharIndex){
+				SortedArr[k] := v
+			}
+		}
+		; compile list of remaining non-numbered items to be sorted alphabetically
+		for k,v in arr {
+			if (k > arr.Length() - DigitIndex + CharIndex){
+				Sorted .= arr[CharIndex + j] . ","
+				j++
+			}
+		}
+	} else {
+		for k,v in arr {
+			Sorted .= v ","
+		}
+	}
+
+	; alphabetic sort
+	Sort, Sorted, D,
+	Loop, Parse, Sorted, % ","
+		SortedArr.Push(A_LoopField)
+	SortedArr.Pop()
+
+	return SortedArr
 }
 ; ==================================================================================================================================
 
@@ -319,8 +402,7 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 }
 
 GetUpToDateFile(File){
-	UpToDateFile := ""
-	, temp := ""
+	UpToDateFile := temp := ""
 	, File1 := File . "0.sgd"
 	, File2 := File . "1.sgd"
 	, File3 := File . "2.sgd"
