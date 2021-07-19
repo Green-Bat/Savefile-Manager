@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.11.7 (Last updated 21/04/2021)
+*	1.4.12 (Last updated 07/19/2021)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -64,8 +64,8 @@ if (settings.SavedDirs.Count()){
 	}
 }
 GuiControl, Choose, c_Dirs, % settings.LastChosenGame ; Make the current choice in the DropDown be whatever the user chose last.
-Gui, Main:Add, Text, xm yp+70 w450 r2 vptext, % "Current personal directory: " settings.pSaveDir
-Gui, Main:Add, Text, xm yp+30 wp r2 vgtext, % "Current game directory: " settings.gSaveDir
+Gui, Main:Add, Text, xm yp+70 w450 r2 vptext gopenfolder, % "Current personal directory: " settings.pSaveDir
+Gui, Main:Add, Text, xm yp+30 wp r2 vgtext gopenfolder, % "Current game directory: " settings.gSaveDir
 Gui, Main:Add, TreeView, r19 xm yp+40 w220 -HScroll -Lines -Buttons +0x800 +0x1000 ImageList%ImageListID% vTVp
 Gui, Main:Add, TreeView, r15 xp+250 yp wp-20 -HScroll -Lines +0x800 +0x1000 ImageList%ImageListID% vTVg
 ; Populate the TreeView with the files in the currently chosen personal/game directories, if they exist
@@ -85,14 +85,18 @@ return
 ;*************************************************************************| G-LABELS |**************************************************************************************************
 
 add_game: ; Adds a game and saves it
+	Gui +OwnDialogs ; Makes any dialogs like, MsgBox, InputBox...etc, modal
 	; Let user choose the personal directory, if they cancel the dialog then return
 	if !(newPersonalDir := SelectFolderEx(settings.pSaveDir ? settings.pSaveDir : A_Desktop, "Select a directory that contains your own personal save files", MainHwnd))
 		return
 	; Let user choose the game directory, if they cancel the dialog then return
 	if !(newGameDir := SelectFolderEx(settings.gSaveDir ? settings.gSaveDir : A_Desktop, "Select the directory that contains the game's save files", MainHwnd))
 		return
+	else if (newGameDir == newPersonalDir){
+		MsgBox, 48, Savefile Replacer, % "The personal directory and the game directory cannot be the same`nPlease choose a different personal directory."
+		newPersonalDir := SelectFolderEx(settings.pSaveDir ? settings.pSaveDir : A_Desktop, "Select a directory that contains your own personal save files", MainHwnd)
+	}
 
-	Gui +OwnDialogs ; Makes any dialogs like, MsgBox, InputBox...etc, modal
 	; Let the user choose the name that will be saved, if blank then return
 	if !(SavedName := SaveDir(newGameDir, newPersonalDir))
 		return
@@ -202,6 +206,7 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 	if (!SubFIsHighlighted && SubFolder){
 		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pCurrentFilePaths[parentID] "\" BackupName . ".sgd", 1
 		UpdateFolder(settings.pCurrentFilePaths[parentID], parentID, BackupName . ".sgd")
+		Sleep, 1000
 		SetTimer, % pCheckFilesObj, On
 	} else {	; Create a copy from the game file and put it in the current personal directory then update the personal file TreeView
 		FileCopy, % settings.gCurrentFilePaths[FileToBackup], % settings.pSaveDir "\" BackupName ".sgd", 1
@@ -254,6 +259,15 @@ change_dirs: ; Runs when the user changes the DropDownList choice
 	return
 ;**************************************************************************************************************************************************************************************
 
+openfolder: ; Open the folder that the user double clicks on
+	if (A_GuiEvent != "DoubleClick")
+		return
+	GuiControlGet, folder,, % A_GuiControl
+	folder := SubStr(folder, InStr(folder, ":")+2)
+	Run, % folder
+	return
+;**************************************************************************************************************************************************************************************
+
 MainGuiClose:
 	Save()
 	ExitApp
@@ -261,4 +275,6 @@ MainGuiClose:
 #If WinActive("ahk_id " MainHwnd)
 ^Esc::ExitApp
 #If
+; Dev stuff
 ; !r::Reload
+; !s::UpdateTVp("dd")
