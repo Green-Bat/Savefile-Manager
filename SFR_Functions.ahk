@@ -221,10 +221,7 @@ CustomSort(Unsorted){
 				CharIndex := k
 		} else if !(DigitIndex){
 			if s is integer
-			{
-				if (s > 0)
-					DigitIndex := k
-			}
+				DigitIndex := k
 		}
 	}
 
