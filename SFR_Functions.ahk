@@ -162,6 +162,7 @@ UpdateFolder(Folder, Parent:=0, FileName:=""){ ; Updates a specific folder
 				Parent := ID
 		}
 	}
+
 	if !(Parent)
 		return
 	StartingID := TV_GetChild(Parent)
@@ -175,7 +176,7 @@ UpdateFolder(Folder, Parent:=0, FileName:=""){ ; Updates a specific folder
 	}
 	; Re-add everything
 	AddSubfolders(Folder, Parent)
-	Loop, Files, % A_LoopFileLongPath "\*.sgd"
+	Loop, Files, % Folder "\*.sgd"
 	{
 		FUnsorted .= A_LoopFileName . ","
 		temppath[A_LoopFileName] := A_LoopFileLongPath
@@ -185,7 +186,7 @@ UpdateFolder(Folder, Parent:=0, FileName:=""){ ; Updates a specific folder
 	for k, v in temp {
 		AddedID := TV_Add(v, Parent, "Icon1")
 		, settings.pCurrentFilePaths[AddedID] := temppath[v]
-		if (temp[k] = FileName)
+		if (v = FileName)
 			IDToSelect := AddedID
 	}
 
