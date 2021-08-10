@@ -226,11 +226,14 @@ CustomSort(Unsorted){
 		}
 	}
 
+	if !(CharIndex)
+		DigitIndex := 1
+
 	; if there are numbered items shift them up the list
 	if (DigitIndex){
 		for k,v in arr {
 			; place numbered items in new list starting from index of non-numbered items
-			if (k >= CharIndex && k <= arr.Length() - DigitIndex + CharIndex){
+			if (k >= CharIndex && k <= (DigitIndex == 1 ? arr.Length() : (arr.Length() - DigitIndex + CharIndex))){
 				SortedArr[k] := arr[DigitIndex + i]
 				i++
 			} else if (k < CharIndex){
@@ -251,10 +254,12 @@ CustomSort(Unsorted){
 	}
 
 	; alphabetic sort
-	Sort, Sorted, D,
-	Loop, Parse, Sorted, % ","
-		SortedArr.Push(A_LoopField)
-	SortedArr.Pop()
+	if (StrReplace(Sorted, ",", "")){
+		Sort, Sorted, D,
+		Loop, Parse, Sorted, % ","
+			SortedArr.Push(A_LoopField)
+		SortedArr.Pop()
+	}
 
 	return SortedArr
 }
