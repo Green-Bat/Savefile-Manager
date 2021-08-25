@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.13 (Last updated 10/08/2021)
+*	1.4.14 (Last updated 25/08/2021)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -184,7 +184,8 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 			} until !(childID)
 		} else {
 			Loop, % TV_GetCount() {
-				(A_Index == 1) ? TV_GetText(ExistingName, childID) : TV_GetText(ExistingName, childID := TV_GetNext(childID))
+				TV_GetText(ExistingName, childID := TV_GetNext(childID))
+				MsgBox, % ExistingName
 				if ( InStr(ExistingName, ".sgd") && BackupName = SubStr(ExistingName, 1, -4)){
 					MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
 					IfMsgBox, Yes
