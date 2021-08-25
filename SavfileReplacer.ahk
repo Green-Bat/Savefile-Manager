@@ -246,6 +246,7 @@ replace: ; Replace the currently highlighted file in the game file TreeView with
 ;**************************************************************************************************************************************************************************************
 
 change_dirs: ; Runs when the user changes the DropDownList choice
+	Critical
 	Gui, Main:Submit, NoHide ; Get the new choice of the DropDownList and update everything accordingly
 	; AltSubmit used to get the current position of the choice then makes it the last chosen game
 	GuiControl, +AltSubmit, c_Dirs
