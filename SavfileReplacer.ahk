@@ -185,7 +185,6 @@ create_backup: ; Create a backup from the currently highlighted file in the game
 		} else {
 			Loop, % TV_GetCount() {
 				TV_GetText(ExistingName, childID := TV_GetNext(childID))
-				MsgBox, % ExistingName
 				if ( InStr(ExistingName, ".sgd") && BackupName = SubStr(ExistingName, 1, -4)){
 					MsgBox, 52, Savefile Replacer, The name you chose already exists. Would you like to overwrite the file?
 					IfMsgBox, Yes
