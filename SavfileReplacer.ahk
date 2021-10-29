@@ -267,7 +267,6 @@ openfolder: ; Open the folder that the user double clicks on
 	if (A_GuiEvent != "DoubleClick")
 		return
 	GuiControlGet, folder,, % A_GuiControl
-	MsgBox, % A_Gui
 	folder := SubStr(folder, InStr(folder, ":")+2)
 	Run, % folder
 	return
@@ -281,5 +280,5 @@ MainGuiClose:
 ^Esc::ExitApp
 #If
 ; Dev stuff
-!r::Reload
-!s::UpdateTVp("dd")
+;!r::Reload
+;!s::UpdateTVp("dd")
