@@ -5,7 +5,7 @@
 *Savefile Replacer 
 *By GreenBat
 *Version:
-*	1.4.14 (Last updated 25/08/2021)
+*	1.4.15 (Last updated 29/10/2021)
 *	https://github.com/Green-Bat/Savefile-Replacer
 */
 #Warn
@@ -87,14 +87,17 @@ return
 add_game: ; Adds a game and saves it
 	Gui +OwnDialogs ; Makes any dialogs like, MsgBox, InputBox...etc, modal
 	; Let user choose the personal directory, if they cancel the dialog then return
-	if !(newPersonalDir := SelectFolderEx(settings.pSaveDir ? settings.pSaveDir : A_Desktop, "Select a directory that contains your own personal save files", MainHwnd))
-		return
-	; Let user choose the game directory, if they cancel the dialog then return
-	if !(newGameDir := SelectFolderEx(settings.gSaveDir ? settings.gSaveDir : A_Desktop, "Select the directory that contains the game's save files", MainHwnd))
-		return
-	else if (newGameDir == newPersonalDir){
-		MsgBox, 48, Savefile Replacer, % "The personal directory and the game directory cannot be the same`nPlease choose a different personal directory."
-		newPersonalDir := SelectFolderEx(settings.pSaveDir ? settings.pSaveDir : A_Desktop, "Select a directory that contains your own personal save files", MainHwnd)
+	Loop {
+		if !(newPersonalDir := SelectFolderEx(settings.pSaveDir ? settings.pSaveDir : A_Desktop, "Select a directory that contains your own personal save files", MainHwnd))
+			return
+		; Let user choose the game directory, if they cancel the dialog then return
+		if !(newGameDir := SelectFolderEx(settings.gSaveDir ? settings.gSaveDir : A_Desktop, "Select the directory that contains the game's save files", MainHwnd))
+			return
+		if (newGameDir == newPersonalDir){
+			MsgBox, 48, Savefile Replacer, % "The personal directory and the game directory cannot be the same."
+		} else {
+			break
+		}
 	}
 
 	; Let the user choose the name that will be saved, if blank then return
@@ -264,6 +267,7 @@ openfolder: ; Open the folder that the user double clicks on
 	if (A_GuiEvent != "DoubleClick")
 		return
 	GuiControlGet, folder,, % A_GuiControl
+	MsgBox, % A_Gui
 	folder := SubStr(folder, InStr(folder, ":")+2)
 	Run, % folder
 	return
@@ -277,5 +281,5 @@ MainGuiClose:
 ^Esc::ExitApp
 #If
 ; Dev stuff
-; !r::Reload
-; !s::UpdateTVp("dd")
+!r::Reload
+!s::UpdateTVp("dd")
