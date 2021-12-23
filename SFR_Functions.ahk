@@ -104,7 +104,7 @@ UpdateTVp(BackupName:=""){ ; Updates the TreeView for the personal directory
 	AddSubfolders(settings.pSaveDir)
 	Loop, Files, % settings.pSaveDir "\*.sgd"
 	{
-		FUnsorted .= A_LoopFileName . ","
+		FUnsorted .= A_LoopFileName . "|"
 		temppath[A_LoopFileName] := A_LoopFileLongPath
 	}
 
@@ -139,7 +139,7 @@ AddSubfolders(Folder, Parent:=0){
 		AddSubfolders(A_LoopFileLongPath, SubfolderID)
 		Loop, Files, % A_LoopFileLongPath "\*.sgd"
 		{
-			FUnsorted .= A_LoopFileName . ","
+			FUnsorted .= A_LoopFileName . "|"
 			temppath[A_LoopFileName] := A_LoopFileLongPath
 		}
 		temp := CustomSort(FUnsorted)
@@ -178,8 +178,8 @@ UpdateFolder(Folder, Parent:=0, FileName:=""){ ; Updates a specific folder
 	AddSubfolders(Folder, Parent)
 	Loop, Files, % Folder "\*.sgd"
 	{
-		FUnsorted .= A_LoopFileName . ","
-		temppath[A_LoopFileName] := A_LoopFileLongPath
+		FUnsorted .= A_LoopFileName . "|"
+		, temppath[A_LoopFileName] := A_LoopFileLongPath
 	}
 	temp := CustomSort(FUnsorted)
 
@@ -203,13 +203,14 @@ UpdateFolder(Folder, Parent:=0, FileName:=""){ ; Updates a specific folder
 CustomSort(Unsorted){
 	SortedArr := [], arr := []
 	, Sorted := ""
-	,  CharIndex := DigitIndex := i := j := 0
+	,  CharIndex := DigitIndex := 0
+	, i := j := 1
 
 	; Sort numerically using built-in sort command
 	; This command sorts numeric items at the bottom of the list
 	; so more sorting needs to be done
-	Sort, Unsorted, N D,
-	Loop, Parse, Unsorted, % ","
+	Sort, Unsorted, N D|
+	Loop, Parse, Unsorted, % "|"
 		arr.Push(A_LoopField)
 	arr.Pop()
 
@@ -230,35 +231,30 @@ CustomSort(Unsorted){
 		DigitIndex := 1
 
 	; if there are numbered items shift them up the list
-	if (DigitIndex){
-		for k,v in arr {
+	for k,v in arr {
+		if (DigitIndex){
 			; place numbered items in new list starting from index of non-numbered items
-			if (k >= CharIndex && k <= (DigitIndex == 1 ? arr.Length() : (arr.Length() - DigitIndex + CharIndex))){
-				SortedArr[k] := arr[DigitIndex + i]
+			if (k <= (DigitIndex == 1 ? arr.Length() : (arr.Length() - DigitIndex + 1))){
+				SortedArr[k] := arr[DigitIndex + i - 1]
 				i++
-			} else if (k < CharIndex){
-				SortedArr[k] := v
 			}
-		}
-		; compile list of remaining non-numbered items to be sorted alphabetically
-		for k,v in arr {
-			if (k > arr.Length() - DigitIndex + CharIndex){
-				Sorted .= arr[CharIndex + j] . ","
+			; compile list of remaining non-numbered items to be sorted alphabetically
+			if (k > arr.Length() - DigitIndex + 1){
+				Sorted .= arr[j] . "|"
 				j++
 			}
-		}
-	} else {
-		for k,v in arr {
-			Sorted .= v ","
+		} else {
+			; if no numbered items just sort alphabetically
+			Sorted .= v "|"
 		}
 	}
 
 	; alphabetic sort
-	if (StrReplace(Sorted, ",", "")){
-		Sort, Sorted, D,
-		Loop, Parse, Sorted, % ","
+	if (StrReplace(Sorted, "|", "")){
+		Sort, Sorted, D|
+		Loop, Parse, Sorted, % "|"
 			SortedArr.Push(A_LoopField)
-		SortedArr.Pop()
+		SortedArr.Pop() ; pop as last element is empty
 	}
 
 	return SortedArr
