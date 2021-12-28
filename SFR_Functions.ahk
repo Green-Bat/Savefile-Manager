@@ -203,11 +203,11 @@ UpdateFolder(Folder, Parent:=0, FileName:=""){ ; Updates a specific folder
 CustomSort(Unsorted){
 	SortedArr := [], arr := []
 	, Sorted := ""
-	,  CharIndex := DigitIndex := 0
-	, i := j := 1
+	,  CharIndex := DigitIndex := i := j := 0
 
 	; Sort numerically using built-in sort command
 	; This command sorts numeric items at the bottom of the list
+	; except ones starting with '0' for some reason, which go to the top
 	; so more sorting needs to be done
 	Sort, Unsorted, N D|
 	Loop, Parse, Unsorted, % "|"
@@ -234,13 +234,15 @@ CustomSort(Unsorted){
 	for k,v in arr {
 		if (DigitIndex){
 			; place numbered items in new list starting from index of non-numbered items
-			if (k <= (DigitIndex == 1 ? arr.Length() : (arr.Length() - DigitIndex + 1))){
-				SortedArr[k] := arr[DigitIndex + i - 1]
+			if (k >= CharIndex && k <= (DigitIndex == 1 ? arr.Length() : (arr.Length() - DigitIndex + CharIndex))){
+				SortedArr[k] := arr[DigitIndex + i]
 				i++
+			} else if (k < CharIndex){
+				SortedArr[k] := v
 			}
 			; compile list of remaining non-numbered items to be sorted alphabetically
-			if (k > arr.Length() - DigitIndex + 1){
-				Sorted .= arr[j] . "|"
+			if (k > arr.Length() - DigitIndex + CharIndex){
+				Sorted .= arr[CharIndex + j] . "|"
 				j++
 			}
 		} else {
@@ -400,7 +402,7 @@ SpecialCaseAK(FileName, FileToReplaceWith){
 	}
 }
 
-GetUpToDateFile(File){
+GetUpToDateFile(File){ ; Get most up to date savefile for Arkham Knight
 	UpToDateFile := temp := ""
 	, File1 := File . "0.sgd"
 	, File2 := File . "1.sgd"
