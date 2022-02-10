@@ -1,16 +1,16 @@
 # Savefile-Replacer
-A program to help manage savefiles (backup/replace), specifically made for the Batman: Arkham series, but it can be repurposed since it's just a glorified copy-paste program.
+A program to help manage savefiles (backup/replace), originally made for the Batman: Arkham series, but can now be used with any file extension.
 
 ## How to Use:
 
 
--Click "Add a game"
+- Click "Add a game"
 
--Choose a folder which will be YOUR OWN personal folder that stores backedup savefiles
+- Choose a folder which will be YOUR OWN personal folder that stores backedup savefiles
 
--Choose the folder that contains the GAME'S savefiles. If you're not sure where this is, check PCGamingWiki: http://pcgamingwiki.com/
+- Choose the folder that contains the GAME'S savefiles. If you're not sure where this is, check PCGamingWiki: http://pcgamingwiki.com/
 
--Then you choose the name you want it to be saved as.
+- Then you choose the name you want it to be saved as.
 
 Remove current game will remove the game you currently have selected.
 
@@ -30,13 +30,5 @@ For example: if you replace BAK1Save0x0.sgd it will also overwrite BAK1Save0x1.s
 *When backing up a savefile for Arkham Knight it does not matter which one you choose, 
 the program will automatically choose the most recent one.
 
-
-## \*\*Important Note
-Keep the main exe and the `settings.JSON` file in the same directory.\
-If you want to move the program somewhere else create a shortcut and move that.
-
-## \*\*Importan Note 2
+## \*Importan Note
 If you're using Steam, it is recommended to disable steam cloud saves as they have been known to cause some issues.
-
-### Kill-Switch:
-Ctrl+Esc will terminate the program without saving any settings.
