@@ -1,5 +1,8 @@
+__pycache__/
 
-.json
+*.png
+*.ico
+*.json
+*.exe
 .vscode
-.exe
 config
