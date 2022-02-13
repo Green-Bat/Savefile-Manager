@@ -1,8 +1,12 @@
 __pycache__/
+build/
+dist/
+
 
 *.png
 *.ico
 *.json
 *.exe
+*.spec
 .vscode
 config

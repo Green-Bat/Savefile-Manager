@@ -12,11 +12,10 @@ import shutil
 from os import startfile
 from pathlib import Path
 import logging
-from turtle import back
-from natsort import os_sorted
+from natsort import os_sorted, natsorted
 
 # my modules
-from Themes import Theme
+from Theme import Theme
 
 # TODO:
 # -[x] Replace method
@@ -25,13 +24,14 @@ from Themes import Theme
 # Edit method
 # -[x] Double clicking labels opens directory
 # auto update treeviews
+# Maintain selection after update
 # create backups of files before replacing and backup
 # Resizing
 # - [/] Remember window coordinates (& dimensions)
 # Arkham version
 #   auto convert for arkham version?
 # center message boxes
-# -[/] Themes
+# -[x] Themes
 
 
 class SavefileManager:
@@ -65,6 +65,7 @@ class SavefileManager:
                 "Profiles": {},
                 "Xcoord": 0,
                 "Ycoord": 0,
+                "Theme": "",
             }
             try:
                 with self.settingsPath.open("w") as f:
@@ -73,7 +74,7 @@ class SavefileManager:
             except OSError as e:
                 logging.error(f"Couldn't generate settings file {e.strerror}")
                 messagebox.showerror(
-                    "ERROR", "Couldn't make settings file. Check config\\log.log"
+                    "ERROR", "Couldn't make settings file. Check log file"
                 )
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # -------------------- GUI INIT  -------------------------
@@ -81,16 +82,12 @@ class SavefileManager:
 
         # keep a refrence of the base window
         self._root = root
-        # ------------------ STYLE DEFINITION ------------------
-        self.darkTheme = [("Arial", 9), "#212020", "#383636", "white"]
         self.theme = Theme(self._root)
-        self.theme.SetTheme("Dark")
 
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         root.title("Savefile Manager")
         root.resizable(False, False)
-        root.configure(background="#383636")
-        self.geo = ("480", "480")
+        self.geo = ("490", "485")
 
         if int(self.settings["Xcoord"]) + 480 > root.winfo_screenwidth():
             self.settings["Xcoord"] = root.winfo_screenwidth() - 480
@@ -112,18 +109,48 @@ class SavefileManager:
         root.option_add("*tearOff", False)
         self.menubar = Menu(
             self.frame_header,
-            background=self.darkTheme[1],
         )
         root.config(menu=self.menubar)
-        self.options = Menu(
-            self.menubar,
-            background=self.darkTheme[1],
-            foreground=self.darkTheme[3],
-        )
+        self.options = Menu(self.menubar)
         self.options.add_command(label="Add", command=self.AddProfile)
         self.options.add_command(label="Edit", command=self.EditProfile)
         self.options.add_command(label="Remove", command=self.RemoveProfile)
+        self.currTheme = StringVar(value="Dark")
+        self.themes = Menu(self.menubar)
+        self.themes.add_radiobutton(
+            label="Dark",
+            variable=self.currTheme,
+            selectcolor="grey",
+        )
+        self.themes.add_radiobutton(
+            label="Dark (Alt)",
+            variable=self.currTheme,
+            selectcolor="grey",
+        )
+        self.themes.add_radiobutton(
+            label="Classic",
+            variable=self.currTheme,
+            selectcolor="grey",
+        )
+        self.themes.add_radiobutton(
+            label="Solarized",
+            variable=self.currTheme,
+            selectcolor="grey",
+        )
         self.menubar.add_cascade(menu=self.options, label="Options")
+        self.menubar.add_cascade(menu=self.themes, label="Themes")
+
+        # Set the theme
+        self.currTheme.trace_add(
+            "write",
+            callback=lambda var, index, mode: self.theme.SetTheme(
+                self.currTheme.get(), self.options, self.themes
+            ),
+        )
+        if self.settings["Theme"]:
+            self.currTheme.set(self.settings["Theme"])
+        else:
+            self.currTheme.set("Dark")
 
         # DropDownList
         ttk.Label(
@@ -137,7 +164,7 @@ class SavefileManager:
         )
 
         self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
-        self.ddlOpt.sort()
+        self.ddlOpt = natsorted(self.ddlOpt)
         self.DDL = ttk.Combobox(
             self.frame_header,
             values=self.ddlOpt,
@@ -150,7 +177,7 @@ class SavefileManager:
         self.DDL.state(["readonly"])
         self.DDL.bind("<<ComboboxSelected>>", self.updateDDL)
         self.DDL.bind("<<FocusOut>>", lambda e: self.DDL.selection_clear(0, END))
-        self.DDL.grid(row=0, column=1, sticky="e", padx=5)
+        self.DDL.grid(row=0, column=1, sticky="e", padx=5, pady=2)
 
         # Path Labels
         label_p = (
@@ -189,7 +216,7 @@ class SavefileManager:
 
         # Treeview
         self.treeview_p = ttk.Treeview(
-            self.frame_body, selectmode="browse", height=15, show="tree"
+            self.frame_body, selectmode="browse", height=17, show="tree"
         )
         self.treeview_g = ttk.Treeview(
             self.frame_body,
@@ -202,26 +229,20 @@ class SavefileManager:
             self.frame_body, orient=VERTICAL, command=self.treeview_p.yview
         )
         self.treeview_p.config(yscrollcommand=self.yscroll.set)
-        self.yscroll.grid(row=0, rowspan=2, column=0, sticky="nse", pady=5)
+        self.yscroll.grid(row=0, rowspan=2, column=0, sticky="nse", pady=5, padx=5)
         # Treeview buttons
         # ------------- BUTTON SUB-FRAME -------------
         self.frame_button = ttk.Frame(self.frame_body)
         self.frame_button.grid(row=0, column=1)
-        self.button_replace = Button(
+        self.button_replace = ttk.Button(
             self.frame_button,
-            bg="#212020",
-            foreground="white",
             text="=>",
             command=self.Replace,
-            height=2,
         )
-        self.button_backup = Button(
+        self.button_backup = ttk.Button(
             self.frame_button,
-            bg="#212020",
-            foreground="white",
             text="<=",
             command=self.Backup,
-            height=2,
         )
         self.button_replace.grid(row=0, column=0, sticky="ns", pady=5)
         self.button_backup.grid(row=1, column=0, sticky="ns", pady=5)
@@ -236,7 +257,7 @@ class SavefileManager:
         # --------------------- END OF INIT ----------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    def UpdateTree(self, init=False, tree: str = "Both"):
+    def UpdateTree(self, init=False, tree: str = "Both", toSelect: str = None):
         """
         Initializes the treeviews and handles
         any updates when switching between profiles
@@ -254,11 +275,11 @@ class SavefileManager:
             if tree == "P" or tree == "Both":
                 for child in self.treeview_p.get_children():
                     self.treeview_p.delete(child)
-                self.settings["CurrFilesG"].clear()
+                self.settings["CurrFilesP"].clear()
             if tree == "G" or tree == "Both":
                 for child in self.treeview_g.get_children():
                     self.treeview_g.delete(child)
-                self.settings["CurrFilesP"].clear()
+                self.settings["CurrFilesG"].clear()
 
         # Add subfolders for the personal directory
         if tree == "P" or tree == "Both":
@@ -268,6 +289,9 @@ class SavefileManager:
             for file in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}")):
                 self.treeview_p.insert("", "end", file.name, text=file.name)
                 self.settings["CurrFilesP"][file.name] = str(file)
+            if toSelect:
+                self.treeview_p.selection_set(toSelect)
+                self.treeview_p.see(toSelect)
         # Add the files in the game's directory
         if tree == "G" or tree == "Both":
             g = Path(self.settings["CurrProfile"][2])
@@ -309,7 +333,6 @@ class SavefileManager:
         Updates treeviews and settings json
         when changing combobox option
         """
-        self._root.focus_set()
         # Change current profile
         self.settings["CurrProfile"] = self.settings["Profiles"][self.DDL.get()]
         # Change path labels
@@ -378,8 +401,6 @@ class SavefileManager:
                 continue
             else:
                 break
-        self._root.focus_set()
-        self._root.focus_force()
         # Ask for the file extension
         while True:
             ext = askstring(
@@ -395,7 +416,7 @@ class SavefileManager:
         if not ext.startswith("."):
             ext = "." + ext
         self.ddlOpt.append(newProf)
-        self.ddlOpt.sort()
+        self.ddlOpt = natsorted(self.ddlOpt)
         self.DDL["values"] = self.ddlOpt
         self.DDL.set(newProf)
         self.settings["Profiles"][newProf] = [newProf, dir_p, dir_g, ext]
@@ -403,6 +424,30 @@ class SavefileManager:
         self.Save()
 
     def EditProfile(self):
+        self.editwin = Toplevel(self._root)
+        self.editwin.configure(background=self.theme.themes[self.currTheme.get()][2])
+        coords = self._root.geometry().split("+")
+        geo = int(coords[0].split("x"))
+        coords.pop(0)
+        coords = coords
+
+        ttk.Label(self.editwin, text="Change personal directory").grid(
+            row=0, column=0, pady=5
+        )
+        ttk.Label(self.editwin, text="Change game's directory").grid(
+            row=1, column=0, pady=5
+        )
+        ttk.Label(self.editwin, text="Change profile name directory").grid(
+            row=2, column=0, pady=5
+        )
+        ttk.Label(self.editwin, text="Change extension directory").grid(
+            row=3, column=0, pady=5
+        )
+        ttk.Button(self.editwin, text="Change", width=6).grid(row=0, column=1, pady=5)
+        ttk.Button(self.editwin, text="Change", width=6).grid(row=1, column=1, pady=5)
+        ttk.Button(self.editwin, text="Change", width=6).grid(row=2, column=1, pady=5)
+        ttk.Button(self.editwin, text="Change", width=6).grid(row=3, column=1, pady=5)
+        self.Save()
         pass
 
     def RemoveProfile(self):
@@ -415,12 +460,13 @@ class SavefileManager:
         # Get the remaining profiles and sort them
         # then change the values in the combobox
         self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
-        self.ddlOpt.sort()
+        self.ddlOpt = natsorted(self.ddlOpt)
         self.DDL["values"] = self.ddlOpt
         # Set combobox to the next profile and generate
         # an event to update the treeviews
         self.DDL.set(list(self.settings["Profiles"])[0])
         self.DDL.event_generate("<<ComboboxSelected>>")
+        self.Save()
 
     def Replace(self):
         """
@@ -439,12 +485,19 @@ class SavefileManager:
             )
             return
         src = self.settings["CurrFilesP"][selection_p[0]]
+        if Path(src).is_dir():
+            logging.warning("Folder chosen warning")
+            messagebox.showwarning(
+                "Choose a file", "Please choose a file not a folder from the left list"
+            )
+            return
         dst = self.settings["CurrFilesG"][selection_g[0]]
         try:
             shutil.copy2(src, dst)
+            logging.info("Successful replace")
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
-            messagebox.showerror("COPY ERORR", "Couldn't copy the file check log")
+            messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
 
     def Backup(self):
         overwrite, toSub = False, True
@@ -464,6 +517,7 @@ class SavefileManager:
         # If no personal file is selected use the main folder
         # otherwise use the selection
         if not selection_p:
+            toSub = False
             dst = Path(self.settings["CurrProfile"][1])
         else:
             dst = Path(self.settings["CurrFilesP"][selection_p[0]])
@@ -492,7 +546,6 @@ class SavefileManager:
                     continue
             else:
                 break
-
         # append extension to chosen name
         backupName += ext
         # if the selection is a subfolder use it as the path
@@ -506,30 +559,38 @@ class SavefileManager:
                     "Add to currently selected subfolder (yes) or main folder (no)?",
                 )
             if toSub:
+                toSelect = dst.name + backupName
                 dst = dst / backupName
             else:
+                toSelect = backupName
                 dst = Path(self.settings["CurrProfile"][1]) / backupName
         else:
+            toSelect = backupName
             dst = Path(self.settings["CurrProfile"][1]) / backupName
 
         try:
             shutil.copy(src, dst)
+            logging.info("Successful backup")
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
-            messagebox.showerror("COPY ERORR", "Couldn't copy the file, check log")
+            messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
+        self.UpdateTree(tree="P", toSelect=toSelect)
+        self.Save()
 
     def Save(self):
         coords = self._root.geometry().split("+")
         geo = coords[0].split("x")
         self.settings["Xcoord"] = coords[1]
         self.settings["Ycoord"] = coords[2]
+        self.settings["Theme"] = self.currTheme.get()
         try:
             with open(self.settingsPath, "w") as f:
                 json.dump(self.settings, f, indent=4)
+            logging.info("Settings saved correctly")
         except OSError as e:
             logging.error(f"Couldn't save settings {e.strerror}")
             messagebox.showerror(
-                "Settings file error", "Couldn't save settings check log"
+                "Settings file error", "Couldn't save settings. Check log file"
             )
 
     def on_close(self):
