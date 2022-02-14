@@ -8,7 +8,15 @@ class Theme:
         self.style = ttk.Style(root)
         self.style.theme_settings(
             "vista",
-            settings={"TButton": {"configure": {"width": 4}}},
+            settings={
+                "TButton": {
+                    "configure": {
+                        "width": 4,
+                        "font": ("Arial", 10),
+                        "anchor": "center",
+                    }
+                }
+            },
         )
         self.themes = {
             "Dark": [("Arial", 9), "#212020", "#1f1f1f", "white", "#4287f5"],
@@ -28,6 +36,7 @@ class Theme:
                         "relief": "raised",
                         "shiftrelief": 2,
                         "width": 2,
+                        "anchor": "center",
                     },
                     "map": {"relief": [("pressed", "solid")]},
                 },
@@ -60,6 +69,7 @@ class Theme:
                         "background": self.themes["Dark"][1],
                         "arrowcolor": self.themes["Dark"][3],
                         "troughcolor": self.themes["Dark"][2],
+                        "gripcount": 0,
                     }
                 },
                 "TRadiobutton": {"configure": {"indicatorcolor": "white"}},
@@ -77,6 +87,7 @@ class Theme:
                         "relief": "raised",
                         "shiftrelief": 2,
                         "width": 2,
+                        "anchor": "center",
                     },
                     "map": {"relief": [("pressed", "solid")]},
                 },
@@ -126,6 +137,7 @@ class Theme:
                         "relief": "raised",
                         "shiftrelief": 2,
                         "width": 2,
+                        "anchor": "center",
                     },
                     "map": {"relief": [("pressed", "solid")]},
                 },
@@ -160,19 +172,18 @@ class Theme:
                         "troughcolor": self.themes["Solarized"][2],
                     }
                 },
-                "TRadiobutton": {"configure": {"indicatorcolor": "white"}},
             },
         )
 
-    def SetTheme(self, theme, *menus: Menu):
+    def SetTheme(self, theme, *widgets: Widget):
         if theme == "Classic":
             theme = "vista"
         if theme in self.themes:
             self.root.configure(background=self.themes[theme][2])
-            if menus:
-                for menu in menus:
-                    menu.configure(
+            if widgets:
+                for widget in widgets:
+                    widget.configure(
                         background=self.themes[theme][1],
                         foreground=self.themes[theme][3],
                     )
-        self.style.theme_use(theme)
+            self.style.theme_use(theme)

@@ -1,6 +1,7 @@
 # Tkinter modules
 from tkinter import *
 from tkinter import ttk, messagebox, filedialog
+from tkinter import font
 from tkinter.simpledialog import askstring
 
 # from ttkthemes import ThemedStyle
@@ -21,7 +22,7 @@ from Theme import Theme
 # -[x] Replace method
 # -[x] Backup method
 # -[x] Add treeview scrollbar
-# Edit method
+# -[x] Edit method
 # -[x] Double clicking labels opens directory
 # auto update treeviews
 # Maintain selection after update
@@ -32,6 +33,7 @@ from Theme import Theme
 #   auto convert for arkham version?
 # center message boxes
 # -[x] Themes
+# Add context menu for treeview
 
 
 class SavefileManager:
@@ -116,35 +118,31 @@ class SavefileManager:
         self.options.add_command(label="Edit", command=self.EditProfile)
         self.options.add_command(label="Remove", command=self.RemoveProfile)
         self.currTheme = StringVar(value="Dark")
-        self.themes = Menu(self.menubar)
-        self.themes.add_radiobutton(
+        self.themesMenu = Menu(self.menubar)
+        self.themesMenu.add_radiobutton(
             label="Dark",
             variable=self.currTheme,
-            selectcolor="grey",
+            selectcolor="white",
         )
-        self.themes.add_radiobutton(
+        self.themesMenu.add_radiobutton(
             label="Dark (Alt)",
             variable=self.currTheme,
-            selectcolor="grey",
+            selectcolor="white",
         )
-        self.themes.add_radiobutton(
-            label="Classic",
-            variable=self.currTheme,
-            selectcolor="grey",
-        )
-        self.themes.add_radiobutton(
+        self.themesMenu.add_radiobutton(label="Classic", variable=self.currTheme)
+        self.themesMenu.add_radiobutton(
             label="Solarized",
             variable=self.currTheme,
-            selectcolor="grey",
+            selectcolor="#93a1a1",
         )
         self.menubar.add_cascade(menu=self.options, label="Options")
-        self.menubar.add_cascade(menu=self.themes, label="Themes")
+        self.menubar.add_cascade(menu=self.themesMenu, label="Themes")
 
         # Set the theme
         self.currTheme.trace_add(
             "write",
             callback=lambda var, index, mode: self.theme.SetTheme(
-                self.currTheme.get(), self.options, self.themes
+                self.currTheme.get(), self.options, self.themesMenu
             ),
         )
         if self.settings["Theme"]:
@@ -156,12 +154,8 @@ class SavefileManager:
         ttk.Label(
             self.frame_header,
             text="Savefile Manager",
-            font=("Arial", 10, "bold"),
-        ).grid(
-            row=0,
-            column=0,
-            sticky="ew",
-        )
+            font=("Arial", 12, "bold"),
+        ).grid(row=0, column=0, sticky="ew")
 
         self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
         self.ddlOpt = natsorted(self.ddlOpt)
@@ -269,6 +263,8 @@ class SavefileManager:
 
             tree: Determines which tree to update.
                 Can be ['G', 'P', 'Both']
+
+            toSelect: id of item to select after updating
         """
         # If initializing gui don't delete since tree already empty
         if not init:
@@ -287,11 +283,9 @@ class SavefileManager:
             self.AddSubfolders(p)
             # Add the rest of the files
             for file in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}")):
+                # uses file name as tree id
                 self.treeview_p.insert("", "end", file.name, text=file.name)
                 self.settings["CurrFilesP"][file.name] = str(file)
-            if toSelect:
-                self.treeview_p.selection_set(toSelect)
-                self.treeview_p.see(toSelect)
         # Add the files in the game's directory
         if tree == "G" or tree == "Both":
             g = Path(self.settings["CurrProfile"][2])
@@ -299,6 +293,9 @@ class SavefileManager:
                 self.fileCount += 1
                 self.treeview_g.insert("", "end", file.name, text=file.name)
                 self.settings["CurrFilesG"][file.name] = str(file)
+        if toSelect:
+            self.treeview_p.selection_set(toSelect)
+            self.treeview_p.see(toSelect)
 
     def AddSubfolders(self, path: Path, Parent=""):
         """
@@ -315,6 +312,8 @@ class SavefileManager:
         """
         for folder in path.iterdir():
             if folder.is_dir():
+                # use folder name as tree id
+                # for subfolder use folder name concatenated with subfolder name
                 Parentiid = self.treeview_p.insert(
                     Parent, "end", Parent + folder.name, text=folder.name
                 )
@@ -424,31 +423,112 @@ class SavefileManager:
         self.Save()
 
     def EditProfile(self):
+        if not self.settings["Profiles"]:
+            logging.warning("attempt to edit when no profiles exist")
+            messagebox.showwarning("No profiles", "No profiles exist. Add one first")
+            return
+
+        def Change(name: str, index: int):
+            newval = askstring("Update", f"Change the {name}", parent=self._root)
+            self.editwin.grab_set()
+            self.editwin.wait_window()
+            if not newval:
+                return
+            if name == "extension" and not name.startswith("."):
+                newval = "." + newval
+            elif name == "profile name":
+                self.settings["Profiles"][newval] = self.settings["CurrProfile"]
+                try:
+                    self.settings["Profiles"].pop(self.DDL.get())
+                except KeyError:
+                    logging.debug("Current value of ddl doesn't exist in 'Profiles'")
+                self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
+                self.ddlOpt = natsorted(self.ddlOpt)
+                self.DDL["values"] = self.ddlOpt
+                self.DDL.set(newval)
+            self.settings["CurrProfile"][index] = newval
+            self.settings["Profiles"][self.DDL.get()][index] = newval
+
+        def ChangeFile(folder, index):
+            newfolder = filedialog.askdirectory(
+                initialdir=self.settings["CurrProfile"][index],
+                title=f"Please choose {folder} directory",
+            )
+            if not newfolder:
+                return
+            self.settings["CurrProfile"][index] = newfolder
+            self.settings["Profiles"][self.DDL.get()][index] = newfolder
+
+        def ok_callback():
+            self.UpdateTree()
+            self.Save()
+            self.editwin.destroy()
+
         self.editwin = Toplevel(self._root)
+        editStyle = ttk.Style(self.editwin)
+        editStyle.configure("Edit.TButton", font=("Arial", 10), width=7)
         self.editwin.configure(background=self.theme.themes[self.currTheme.get()][2])
+        self.editwin.resizable(False, False)
         coords = self._root.geometry().split("+")
-        geo = int(coords[0].split("x"))
+        geo = list(map(int, coords[0].split("x")))
         coords.pop(0)
-        coords = coords
+        coords = list(map(int, coords))
+        w, h = geo
+        x, y = coords
+        self.editwin.geometry(f"260x200+{x+((w//2) - 130)}+{y+((h//2) - 100)}")
 
         ttk.Label(self.editwin, text="Change personal directory").grid(
-            row=0, column=0, pady=5
+            row=0, column=0, pady=5, padx=5, sticky="w"
         )
         ttk.Label(self.editwin, text="Change game's directory").grid(
-            row=1, column=0, pady=5
+            row=1, column=0, pady=5, padx=5, sticky="w"
         )
-        ttk.Label(self.editwin, text="Change profile name directory").grid(
-            row=2, column=0, pady=5
+        ttk.Label(self.editwin, text="Change profile name").grid(
+            row=2, column=0, pady=5, padx=5, sticky="w"
         )
-        ttk.Label(self.editwin, text="Change extension directory").grid(
-            row=3, column=0, pady=5
+        ttk.Label(self.editwin, text="Change extension").grid(
+            row=3, column=0, pady=5, padx=5, sticky="w"
         )
-        ttk.Button(self.editwin, text="Change", width=6).grid(row=0, column=1, pady=5)
-        ttk.Button(self.editwin, text="Change", width=6).grid(row=1, column=1, pady=5)
-        ttk.Button(self.editwin, text="Change", width=6).grid(row=2, column=1, pady=5)
-        ttk.Button(self.editwin, text="Change", width=6).grid(row=3, column=1, pady=5)
-        self.Save()
-        pass
+
+        ttk.Button(
+            self.editwin,
+            text="Change",
+            style="Edit.TButton",
+            command=lambda: ChangeFile("personal", 1),
+        ).grid(row=0, column=1, pady=5, padx=5, sticky="e")
+        ttk.Button(
+            self.editwin,
+            text="Change",
+            style="Edit.TButton",
+            command=lambda: ChangeFile("game", 2),
+        ).grid(row=1, column=1, pady=5, padx=5, sticky="e")
+        ttk.Button(
+            self.editwin,
+            text="Change",
+            style="Edit.TButton",
+            command=lambda: Change("profile name", 0),
+        ).grid(row=2, column=1, pady=5, padx=5, sticky="e")
+        ttk.Button(
+            self.editwin,
+            text="Change",
+            style="Edit.TButton",
+            command=lambda: Change("extension", 3),
+        ).grid(row=3, column=1, pady=5, padx=5, sticky="e")
+
+        ttk.Button(
+            self.editwin, text="OK", style="Edit.TButton", command=ok_callback
+        ).grid(row=4, column=0)
+        ttk.Button(
+            self.editwin,
+            text="Cancel",
+            style="Edit.TButton",
+            command=self.editwin.destroy,
+        ).grid(row=4, column=1, sticky="w")
+        self.editwin.grid_columnconfigure(1, weight=1)
+
+        self.editwin.focus_force()
+        self.editwin.grab_set()
+        self.editwin.wait_window()
 
     def RemoveProfile(self):
         """
