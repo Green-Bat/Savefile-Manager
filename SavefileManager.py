@@ -1,7 +1,6 @@
 # Tkinter modules
 from tkinter import *
 from tkinter import ttk, messagebox, filedialog
-from tkinter import font
 from tkinter.simpledialog import askstring
 
 # from ttkthemes import ThemedStyle
@@ -41,12 +40,12 @@ class SavefileManager:
 
         self.fileCount = 0
         # load settings json
-        configPath = Path(__file__).parent.resolve() / "config"
-        self.settingsPath = configPath / "settings.json"
-        self.logpath = configPath / "log.log"
+        self.configPath = Path().resolve() / "config"
+        self.settingsPath = self.configPath / "settings.json"
+        self.logpath = self.configPath / "log.log"
 
-        if not configPath.exists():
-            configPath.mkdir()
+        if not self.configPath.exists():
+            self.configPath.mkdir()
 
         # setup logging
         fmt = "%(levelname)s %(asctime)s %(message)s"
@@ -84,6 +83,7 @@ class SavefileManager:
 
         # keep a refrence of the base window
         self._root = root
+        self._root.iconbitmap(Path().resolve() / "Savefile Replacer Icon.ico")
         self.theme = Theme(self._root)
 
         root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -246,12 +246,14 @@ class SavefileManager:
         # -------------------- END OF BODY FRAME --------------------
         # Fill tree if there is an exisiting profile
         if self.settings["CurrProfile"]:
-            self.UpdateTree(init=True)
+            self.UpdateTree()
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # --------------------- END OF INIT ----------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    def UpdateTree(self, init=False, tree: str = "Both", toSelect: str = None):
+    def UpdateTree(
+        self, tree: str = "Both", toSelect_p: str = None, toSelect_g: str = None
+    ):
         """
         Initializes the treeviews and handles
         any updates when switching between profiles
@@ -264,38 +266,42 @@ class SavefileManager:
             tree: Determines which tree to update.
                 Can be ['G', 'P', 'Both']
 
-            toSelect: id of item to select after updating
-        """
-        # If initializing gui don't delete since tree already empty
-        if not init:
-            if tree == "P" or tree == "Both":
-                for child in self.treeview_p.get_children():
-                    self.treeview_p.delete(child)
-                self.settings["CurrFilesP"].clear()
-            if tree == "G" or tree == "Both":
-                for child in self.treeview_g.get_children():
-                    self.treeview_g.delete(child)
-                self.settings["CurrFilesG"].clear()
+            toSelect_p: id of item to select after updating left treeview
 
-        # Add subfolders for the personal directory
+            toSelect_g: id of item to select after updating right treeview
+        """
         if tree == "P" or tree == "Both":
-            p = Path(self.settings["CurrProfile"][1])
-            self.AddSubfolders(p)
-            # Add the rest of the files
-            for file in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}")):
-                # uses file name as tree id
-                self.treeview_p.insert("", "end", file.name, text=file.name)
-                self.settings["CurrFilesP"][file.name] = str(file)
-        # Add the files in the game's directory
+            # Delete treeview items and clear the CurrFiles dicts
+            # then repopulate the treeviews
+            for child in self.treeview_p.get_children():
+                self.treeview_p.delete(child)
+            self.settings["CurrFilesP"].clear()
+            if self.settings["CurrProfile"]:
+                # Add subfolders for the personal directory
+                p = Path(self.settings["CurrProfile"][1])
+                self.AddSubfolders(p)
+                # Add the rest of the files
+                for file in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}")):
+                    # uses file name as tree id
+                    self.treeview_p.insert("", "end", file.name, text=file.name)
+                    self.settings["CurrFilesP"][file.name] = str(file)
+                if toSelect_p:
+                    self.treeview_p.selection_set(toSelect_p)
+                    self.treeview_p.see(toSelect_p)
         if tree == "G" or tree == "Both":
-            g = Path(self.settings["CurrProfile"][2])
-            for file in os_sorted(g.glob(f"*{self.settings['CurrProfile'][3]}")):
-                self.fileCount += 1
-                self.treeview_g.insert("", "end", file.name, text=file.name)
-                self.settings["CurrFilesG"][file.name] = str(file)
-        if toSelect:
-            self.treeview_p.selection_set(toSelect)
-            self.treeview_p.see(toSelect)
+            for child in self.treeview_g.get_children():
+                self.treeview_g.delete(child)
+            self.settings["CurrFilesG"].clear()
+            if self.settings["CurrProfile"]:
+                # Add the files in the game's directory
+                g = Path(self.settings["CurrProfile"][2])
+                for file in os_sorted(g.glob(f"*{self.settings['CurrProfile'][3]}")):
+                    self.fileCount += 1
+                    self.treeview_g.insert("", "end", file.name, text=file.name)
+                    self.settings["CurrFilesG"][file.name] = str(file)
+                if toSelect_g:
+                    self.treeview_g.selection_set(toSelect_g)
+                    self.treeview_g.see(toSelect_g)
 
     def AddSubfolders(self, path: Path, Parent=""):
         """
@@ -333,17 +339,19 @@ class SavefileManager:
         when changing combobox option
         """
         # Change current profile
-        self.settings["CurrProfile"] = self.settings["Profiles"][self.DDL.get()]
+        self.settings["CurrProfile"] = self.settings["Profiles"].get(self.DDL.get(), [])
         # Change path labels
-        self.PathLabel_p.config(
-            text="Current personal directory: " + self.settings["CurrProfile"][1]
-        )
-        self.PathLabel_g.config(
-            text="Current game directory: " + self.settings["CurrProfile"][2]
-        )
-        # Update treeviews
+        if self.settings["CurrProfile"]:
+            self.PathLabel_p.config(
+                text="Current personal directory: " + self.settings["CurrProfile"][1]
+            )
+            self.PathLabel_g.config(
+                text="Current game directory: " + self.settings["CurrProfile"][2]
+            )
+        else:
+            self.PathLabel_p.config(text="Current personal directory: ")
+            self.PathLabel_g.config(text="Current game directory: ")
         self.UpdateTree()
-        print(self.DDL.get())
         # Save to settings.json
         self.Save()
 
@@ -361,6 +369,7 @@ class SavefileManager:
                 initialdir=dir_p,
                 title="Please choose your OWN personal directory",
             )
+            # If user presses cancel
             if not dir_p:
                 return
             dir_g = filedialog.askdirectory(
@@ -369,11 +378,15 @@ class SavefileManager:
             )
             if not dir_g:
                 return
+            # Personal folder and game folder cannot be the same
+            # as it has been known to cause some issues
+            # in the old version of the replacer probably fine here
+            # might remove this
             if dir_p == dir_g:
+                logging.warning("Same folder chosen")
                 messagebox.showwarning(
                     "Warning: Same folder", "The two directories cannot be the same"
                 )
-                logging.warning("Same folder chosen")
                 continue
             else:
                 break
@@ -450,14 +463,24 @@ class SavefileManager:
             self.settings["Profiles"][self.DDL.get()][index] = newval
 
         def ChangeFile(folder, index):
-            newfolder = filedialog.askdirectory(
-                initialdir=self.settings["CurrProfile"][index],
-                title=f"Please choose {folder} directory",
-            )
-            if not newfolder:
-                return
-            self.settings["CurrProfile"][index] = newfolder
-            self.settings["Profiles"][self.DDL.get()][index] = newfolder
+            while True:
+                newfolder = filedialog.askdirectory(
+                    initialdir=self.settings["CurrProfile"][index],
+                    title=f"Please choose {folder} directory",
+                )
+                if not newfolder:
+                    return
+                oldval = self.settings["CurrProfile"][index]
+                self.settings["CurrProfile"][index] = newfolder
+                if self.settings["CurrProfile"][1] == self.settings["CurrProfile"][2]:
+                    self.settings["CurrProfile"][index] = oldval
+                    messagebox.showwarning(
+                        "Warning: Same folder", "The two directories cannot be the same"
+                    )
+                    continue
+                else:
+                    self.settings["Profiles"][self.DDL.get()][index] = newfolder
+                    break
 
         def ok_callback():
             self.UpdateTree()
@@ -535,18 +558,25 @@ class SavefileManager:
         Removes the currently selected profile
         then selects the next one in the list
         """
-        # Remove profile from settings
-        self.settings["Profiles"].pop(self.DDL.get())
-        # Get the remaining profiles and sort them
-        # then change the values in the combobox
-        self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
-        self.ddlOpt = natsorted(self.ddlOpt)
-        self.DDL["values"] = self.ddlOpt
-        # Set combobox to the next profile and generate
-        # an event to update the treeviews
-        self.DDL.set(list(self.settings["Profiles"])[0])
+        try:
+            # Remove profile from settings
+            self.settings["Profiles"].pop(self.DDL.get())
+            # Get the remaining profiles and sort them
+            # then change the values in the combobox
+            self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
+            self.ddlOpt = natsorted(self.ddlOpt)
+            self.DDL["values"] = self.ddlOpt
+            # Set combobox to the next profile and generate
+            # an event to update the current profile and treeviews
+            self.DDL.set(list(self.settings["Profiles"])[0])
+        except IndexError:
+            # If all profiles dict is empty
+            # set ddl to empty string
+            self.DDL.set("")
+        except KeyError:
+            logging.error("Attempt to remove when there are no profiles")
+            return
         self.DDL.event_generate("<<ComboboxSelected>>")
-        self.Save()
 
     def Replace(self):
         """
@@ -639,13 +669,13 @@ class SavefileManager:
                     "Add to currently selected subfolder (yes) or main folder (no)?",
                 )
             if toSub:
-                toSelect = dst.name + backupName
+                toSelect_p = dst.name + backupName
                 dst = dst / backupName
             else:
-                toSelect = backupName
+                toSelect_p = backupName
                 dst = Path(self.settings["CurrProfile"][1]) / backupName
         else:
-            toSelect = backupName
+            toSelect_p = backupName
             dst = Path(self.settings["CurrProfile"][1]) / backupName
 
         try:
@@ -654,7 +684,7 @@ class SavefileManager:
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
             messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
-        self.UpdateTree(tree="P", toSelect=toSelect)
+        self.UpdateTree(tree="P", toSelect_p=toSelect_p)
         self.Save()
 
     def Save(self):
