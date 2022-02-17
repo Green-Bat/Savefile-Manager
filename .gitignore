@@ -5,6 +5,7 @@ dist/
 
 *.png
 *.ico
+!images/*.ico
 *.json
 *.exe
 *.spec
