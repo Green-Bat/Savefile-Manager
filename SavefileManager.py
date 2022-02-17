@@ -23,7 +23,7 @@ from Theme import Theme
 # -[x] Add treeview scrollbar
 # -[x] Edit method
 # -[x] Double clicking labels opens directory
-# auto update treeviews
+# -[x] auto update treeviews
 # Maintain selection after update
 # create backups of files before replacing and backup
 # Resizing
@@ -32,6 +32,10 @@ from Theme import Theme
 #   auto convert for arkham version?
 # center message boxes
 # -[x] Themes
+# Add profile option in ddl
+# Add profile window
+# Autofill file extension when adding profile
+# show current choices in edit profile window
 # Add context menu for treeview
 
 
@@ -64,8 +68,8 @@ class SavefileManager:
                 "CurrFilesG": {},
                 "CurrProfile": [],
                 "Profiles": {},
-                "Xcoord": 0,
-                "Ycoord": 0,
+                "Xcoord": "",
+                "Ycoord": "",
                 "Theme": "",
             }
             try:
@@ -83,7 +87,7 @@ class SavefileManager:
 
         # keep a refrence of the base window
         self._root = root
-        self._root.iconbitmap(Path().resolve() / "Savefile Replacer Icon.ico")
+        self._root.iconbitmap(Path().resolve() / "images/Savefile Replacer Icon.ico")
         self.theme = Theme(self._root)
 
         root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -117,7 +121,8 @@ class SavefileManager:
         self.options.add_command(label="Add", command=self.AddProfile)
         self.options.add_command(label="Edit", command=self.EditProfile)
         self.options.add_command(label="Remove", command=self.RemoveProfile)
-        self.currTheme = StringVar(value="Dark")
+        # String var for the theme
+        self.currTheme = StringVar()
         self.themesMenu = Menu(self.menubar)
         self.themesMenu.add_radiobutton(
             label="Dark",
@@ -138,13 +143,14 @@ class SavefileManager:
         self.menubar.add_cascade(menu=self.options, label="Options")
         self.menubar.add_cascade(menu=self.themesMenu, label="Themes")
 
-        # Set the theme
+        # Whenever the string var changes change the theme
         self.currTheme.trace_add(
             "write",
             callback=lambda var, index, mode: self.theme.SetTheme(
                 self.currTheme.get(), self.options, self.themesMenu
             ),
         )
+
         if self.settings["Theme"]:
             self.currTheme.set(self.settings["Theme"])
         else:
@@ -247,6 +253,10 @@ class SavefileManager:
         # Fill tree if there is an exisiting profile
         if self.settings["CurrProfile"]:
             self.UpdateTree()
+        else:
+            self.button_backup.state(["disabled"])
+            self.button_replace.state(["disabled"])
+        root.after(1000, self.FileUpdater)
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # --------------------- END OF INIT ----------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -285,7 +295,7 @@ class SavefileManager:
                     # uses file name as tree id
                     self.treeview_p.insert("", "end", file.name, text=file.name)
                     self.settings["CurrFilesP"][file.name] = str(file)
-                if toSelect_p:
+                if toSelect_p and toSelect_p in self.settings["CurrFilesP"]:
                     self.treeview_p.selection_set(toSelect_p)
                     self.treeview_p.see(toSelect_p)
         if tree == "G" or tree == "Both":
@@ -299,9 +309,10 @@ class SavefileManager:
                     self.fileCount += 1
                     self.treeview_g.insert("", "end", file.name, text=file.name)
                     self.settings["CurrFilesG"][file.name] = str(file)
-                if toSelect_g:
+                if toSelect_g and toSelect_g in self.settings["CurrFilesG"]:
                     self.treeview_g.selection_set(toSelect_g)
                     self.treeview_g.see(toSelect_g)
+                    self.treeview_g.see()
 
     def AddSubfolders(self, path: Path, Parent=""):
         """
@@ -433,6 +444,9 @@ class SavefileManager:
         self.DDL.set(newProf)
         self.settings["Profiles"][newProf] = [newProf, dir_p, dir_g, ext]
         self.DDL.event_generate("<<ComboboxSelected>>")
+        if self.button_replace.instate(["disabled"]):
+            self.button_replace.state(["!disabled"])
+            self.button_backup.state(["!disabled"])
         self.Save()
 
     def EditProfile(self):
@@ -558,9 +572,19 @@ class SavefileManager:
         Removes the currently selected profile
         then selects the next one in the list
         """
+        remove = messagebox.askyesno(
+            "Removing Profile",
+            "Are you sure you want to remove the current profile",
+            parent=self._root,
+        )
+        if not remove:
+            return
         try:
             # Remove profile from settings
             self.settings["Profiles"].pop(self.DDL.get())
+            if not self.settings["Profiles"]:
+                self.button_replace.state(["disabled"])
+                self.button_backup.state(["disabled"])
             # Get the remaining profiles and sort them
             # then change the values in the combobox
             self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
@@ -574,6 +598,9 @@ class SavefileManager:
             # set ddl to empty string
             self.DDL.set("")
         except KeyError:
+            messagebox.showwarning(
+                "No profiles", "No profiles to remove. Add one first"
+            )
             logging.error("Attempt to remove when there are no profiles")
             return
         self.DDL.event_generate("<<ComboboxSelected>>")
@@ -702,6 +729,31 @@ class SavefileManager:
             messagebox.showerror(
                 "Settings file error", "Couldn't save settings. Check log file"
             )
+
+    def FileUpdater(self):
+        if not self.settings["CurrProfile"]:
+            self._root.after(1000, self.FileUpdater)
+            return
+        toSelect_p = (
+            self.treeview_p.selection()[0] if self.treeview_p.selection() else ""
+        )
+        toSelect_g = (
+            self.treeview_g.selection()[0] if self.treeview_g.selection() else ""
+        )
+        now = datetime.now()
+        time_p = datetime.fromtimestamp(
+            Path(self.settings["CurrProfile"][1]).stat().st_mtime
+        )
+        time_g = datetime.fromtimestamp(
+            Path(self.settings["CurrProfile"][2]).stat().st_mtime
+        )
+
+        if now - time_p > timedelta(seconds=2) and now - time_p < timedelta(seconds=10):
+            self.UpdateTree(tree="P", toSelect_p=toSelect_p)
+        if now - time_g > timedelta(seconds=2) and now - time_g < timedelta(seconds=10):
+            self.UpdateTree(tree="G", toSelect_g=toSelect_g)
+
+        self._root.after(1000, self.FileUpdater)
 
     def on_close(self):
         self.Save()
