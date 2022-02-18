@@ -16,6 +16,8 @@ from natsort import os_sorted, natsorted
 
 # my modules
 from Theme import Theme
+from AddEditWindow import AddEditWindow
+import Helpers
 
 # TODO:
 # -[x] Replace method
@@ -24,7 +26,7 @@ from Theme import Theme
 # -[x] Edit method
 # -[x] Double clicking labels opens directory
 # -[x] auto update treeviews
-# Maintain selection after update
+# -[x] Maintain selection after update
 # create backups of files before replacing and backup
 # Resizing
 # - [/] Remember window coordinates (& dimensions)
@@ -32,10 +34,10 @@ from Theme import Theme
 #   auto convert for arkham version?
 # center message boxes
 # -[x] Themes
-# Add profile option in ddl
-# Add profile window
-# Autofill file extension when adding profile
-# show current choices in edit profile window
+# -[x] Add profile option in ddl
+# -[x] Add profile window
+# -[x] Autofill file extension when adding profile
+# -[x] show current choices in edit profile window
 # Add context menu for treeview
 
 
@@ -71,6 +73,7 @@ class SavefileManager:
                 "Xcoord": "",
                 "Ycoord": "",
                 "Theme": "",
+                "ProfileCount": 0,
             }
             try:
                 with self.settingsPath.open("w") as f:
@@ -165,6 +168,7 @@ class SavefileManager:
 
         self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
         self.ddlOpt = natsorted(self.ddlOpt)
+        self.ddlOpt.append("Add...")
         self.DDL = ttk.Combobox(
             self.frame_header,
             values=self.ddlOpt,
@@ -251,12 +255,13 @@ class SavefileManager:
         self.treeview_g.grid(row=0, rowspan=2, column=2, sticky="ne", padx=5, pady=5)
         # -------------------- END OF BODY FRAME --------------------
         # Fill tree if there is an exisiting profile
+        # otherwise disable the buttons
         if self.settings["CurrProfile"]:
             self.UpdateTree()
         else:
             self.button_backup.state(["disabled"])
             self.button_replace.state(["disabled"])
-        root.after(1000, self.FileUpdater)
+        root.after(1000, self.FileChecker)
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # --------------------- END OF INIT ----------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -349,6 +354,14 @@ class SavefileManager:
         Updates treeviews and settings json
         when changing combobox option
         """
+        if self.DDL.get() == "Add...":
+            if not self.AddProfile():
+                self.DDL.set(
+                    self.settings["CurrProfile"][0]
+                    if self.settings["CurrProfile"]
+                    else ""
+                )
+            return
         # Change current profile
         self.settings["CurrProfile"] = self.settings["Profiles"].get(self.DDL.get(), [])
         # Change path labels
@@ -372,82 +385,127 @@ class SavefileManager:
         a personal one and the game's save folder,
         a profile name, and a file extension, then save it
         """
-        # Ask for folders
-        dir_p = self.settings["CurrProfile"][1] if self.settings["CurrProfile"] else ""
-        dir_g = self.settings["CurrProfile"][2] if self.settings["CurrProfile"] else ""
-        while True:
-            dir_p = filedialog.askdirectory(
-                initialdir=dir_p,
-                title="Please choose your OWN personal directory",
-            )
-            # If user presses cancel
-            if not dir_p:
-                return
-            dir_g = filedialog.askdirectory(
-                initialdir=dir_g,
-                title="Please choose the GAME'S directory",
-            )
-            if not dir_g:
-                return
-            # Personal folder and game folder cannot be the same
-            # as it has been known to cause some issues
-            # in the old version of the replacer probably fine here
-            # might remove this
-            if dir_p == dir_g:
-                logging.warning("Same folder chosen")
-                messagebox.showwarning(
-                    "Warning: Same folder", "The two directories cannot be the same"
+
+        def Choose(index):
+            if index == 0:
+                while True:
+                    new = askstring(
+                        "Profile Name", "Choose a profile name", parent=addWin.tp
+                    )
+                    if new == "Add...":
+                        logging.warning(f"Invalid name choice '{new}'")
+                        messagebox.showwarning(
+                            "Invalid Name", "Please choose another profile name"
+                        )
+                        continue
+                    else:
+                        break
+                if new:
+                    addWin.entry_profile.state(["!readonly"])
+                    addWin.entry_profile.delete(0, END)
+                    addWin.entry_profile.insert(0, new)
+                    addWin.entry_profile.state(["readonly"])
+            elif index == 1:
+                startDir = (
+                    self.settings["CurrProfile"][index]
+                    if self.settings["CurrProfile"]
+                    else ""
                 )
-                continue
-            else:
-                break
-        # Ask for a profile name
-        while True:
-            newProf = askstring(
-                "Profile name", "Choose a name for your new profile", parent=self._root
-            )
-            # pressing cancel returns None so
-            # distinguishing None vs an empty string here is important
-            if newProf is None:
+                new = filedialog.askdirectory(
+                    initialdir=startDir,
+                    parent=addWin.tp,
+                    title="Choose your OWN folder",
+                )
+                if new:
+                    addWin.entry_p.state(["!readonly"])
+                    addWin.entry_p.delete(0, END)
+                    addWin.entry_p.insert(0, new)
+                    addWin.entry_p.state(["readonly"])
+            elif index == 2:
+                startDir = (
+                    self.settings["CurrProfile"][index]
+                    if self.settings["CurrProfile"]
+                    else ""
+                )
+                new = filedialog.askdirectory(
+                    initialdir=startDir,
+                    parent=addWin.tp,
+                    title="Choose the GAME'S folder",
+                )
+                if new:
+                    addWin.entry_g.state(["!readonly"])
+                    addWin.entry_g.delete(0, END)
+                    addWin.entry_g.insert(0, new)
+                    addWin.entry_g.state(["readonly"])
+            elif index == 3:
+                new = askstring(
+                    "File Extension",
+                    "Enter the file extension of the savefiles e.g. .sgd,.save,...",
+                    parent=addWin.tp,
+                )
+                if new:
+                    if not new.startswith("."):
+                        new = "." + new
+                    addWin.entry_ext.state(["!readonly"])
+                    addWin.entry_ext.delete(0, END)
+                    addWin.entry_ext.insert(0, new)
+                    addWin.entry_ext.state(["readonly"])
+            if not new:
+                addWin.tp.grab_set()
+                addWin.tp.wait_window()
                 return
-            # pressing ok on an empty inputbox returns an empty string
-            elif not newProf:
-                logging.warning("No profile name")
-                messagebox.showwarning("No name", "Profile must have a name")
-                continue
-            elif newProf in self.DDL["values"]:
+            if not addWin.entry_ext.get() and (index == 1 or index == 2):
+                addWin.entry_ext.state(["!readonly"])
+                addWin.entry_ext.delete(0, END)
+                addWin.entry_ext.insert(0, Helpers.GetExt(Path(new)))
+                addWin.entry_ext.state(["readonly"])
+            addWin.tp.grab_set()
+            addWin.tp.wait_window()
+
+        def ok_callback():
+            dir_p = addWin.entry_p.get()
+            dir_g = addWin.entry_g.get()
+            ext = addWin.entry_ext.get()
+            if not (dir_p and dir_g and ext):
+                logging.warning("Incomplete profile warning")
+                messagebox.showwarning(
+                    "Incomplete Profile",
+                    "Please make sure you fill in all the necessary profile information",
+                )
+                return
+            newProf = (
+                addWin.entry_profile.get()
+                if addWin.entry_profile.get()
+                else f"Profile {self.settings['ProfileCount']+1}"
+            )
+            if newProf in self.settings["Profiles"]:
                 logging.warning("Profile name already exists")
                 messagebox.showwarning(
-                    "Profile already exists",
-                    f"'{newProf}' already exists please chose another name",
+                    "Profile Name Exists",
+                    "Profile name already exists please choose anothe one",
                 )
-                continue
-            else:
-                break
-        # Ask for the file extension
-        while True:
-            ext = askstring(
-                "Extenstion", "Enter the savefiles' extension", parent=self._root
-            )
-            if ext is None:
-                return
-            elif not ext:
-                messagebox.showwarning("No name", "Must choose a file extentsion")
-                continue
-            else:
-                break
-        if not ext.startswith("."):
-            ext = "." + ext
-        self.ddlOpt.append(newProf)
-        self.ddlOpt = natsorted(self.ddlOpt)
-        self.DDL["values"] = self.ddlOpt
-        self.DDL.set(newProf)
-        self.settings["Profiles"][newProf] = [newProf, dir_p, dir_g, ext]
-        self.DDL.event_generate("<<ComboboxSelected>>")
-        if self.button_replace.instate(["disabled"]):
-            self.button_replace.state(["!disabled"])
-            self.button_backup.state(["!disabled"])
-        self.Save()
+            self.settings["Profiles"][newProf] = [newProf, dir_p, dir_g, ext]
+            self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
+            self.ddlOpt = natsorted(self.ddlOpt)
+            self.ddlOpt.append("Add...")
+            self.DDL["values"] = self.ddlOpt
+            self.DDL.set(newProf)
+            self.DDL.event_generate("<<ComboboxSelected>>")
+            if self.button_replace.instate(["disabled"]):
+                self.button_replace.state(["!disabled"])
+                self.button_backup.state(["!disabled"])
+            self.settings["ProfileCount"] += 1
+            addWin.tp.destroy()
+            return True
+
+        addWin = AddEditWindow(self._root, Choose, ok_callback)
+        addWin.tp.configure(background=self.theme.themes[self.currTheme.get()][2])
+        addWin.tp.title("Add Profile")
+
+        addWin.tp.focus_force()
+        addWin.tp.grab_set()
+        addWin.tp.wait_window()
+        return False
 
     def EditProfile(self):
         if not self.settings["Profiles"]:
@@ -455,117 +513,104 @@ class SavefileManager:
             messagebox.showwarning("No profiles", "No profiles exist. Add one first")
             return
 
-        def Change(name: str, index: int):
-            newval = askstring("Update", f"Change the {name}", parent=self._root)
-            self.editwin.grab_set()
-            self.editwin.wait_window()
-            if not newval:
+        def Change(index):
+            if index == 0:
+                new = askstring(
+                    "Profile Name", "Change profile name", parent=editwin.tp
+                )
+                if new:
+                    editwin.entry_profile.state(["!readonly"])
+                    editwin.entry_profile.delete(0, END)
+                    editwin.entry_profile.insert(0, new)
+                    editwin.entry_profile.state(["readonly"])
+            elif index == 1:
+                startDir = (
+                    self.settings["CurrProfile"][index]
+                    if self.settings["CurrProfile"]
+                    else ""
+                )
+                new = filedialog.askdirectory(
+                    initialdir=startDir,
+                    title="Change your OWN personal saves folder",
+                    parent=editwin.tp,
+                )
+                if new:
+                    editwin.entry_p.state(["!readonly"])
+                    editwin.entry_p.delete(0, END)
+                    editwin.entry_p.insert(0, new)
+                    editwin.entry_p.state(["readonly"])
+            elif index == 2:
+                startDir = (
+                    self.settings["CurrProfile"][index]
+                    if self.settings["CurrProfile"]
+                    else ""
+                )
+                new = filedialog.askdirectory(
+                    initialdir=startDir,
+                    title="Change the GAME'S saves folder",
+                    parent=editwin.tp,
+                )
+                if new:
+                    editwin.entry_g.state(["!readonly"])
+                    editwin.entry_g.delete(0, END)
+                    editwin.entry_g.insert(0, new)
+                    editwin.entry_g.state(["readonly"])
+            elif index == 3:
+                new = askstring("Extension", "Change file extension", parent=editwin.tp)
+                if new:
+                    if not new.startswith("."):
+                        new = "." + new
+                    editwin.entry_ext.state(["!readonly"])
+                    editwin.entry_ext.delete(0, END)
+                    editwin.entry_ext.insert(0, new)
+                    editwin.entry_ext.state(["readonly"])
+            if not new:
+                editwin.tp.grab_set()
+                editwin.tp.wait_window()
                 return
-            if name == "extension" and not name.startswith("."):
-                newval = "." + newval
-            elif name == "profile name":
-                self.settings["Profiles"][newval] = self.settings["CurrProfile"]
+            editwin.tp.grab_set()
+            editwin.tp.wait_window()
+
+        def ok_callback():
+            prof = editwin.entry_profile.get()
+            dir_p = editwin.entry_p.get()
+            dir_g = editwin.entry_g.get()
+            ext = editwin.entry_ext.get()
+            if prof not in self.settings["Profiles"]:
+                self.settings["Profiles"][prof] = self.settings["CurrProfile"]
                 try:
                     self.settings["Profiles"].pop(self.DDL.get())
                 except KeyError:
                     logging.debug("Current value of ddl doesn't exist in 'Profiles'")
                 self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
                 self.ddlOpt = natsorted(self.ddlOpt)
+                self.ddlOpt.append("Add...")
                 self.DDL["values"] = self.ddlOpt
-                self.DDL.set(newval)
-            self.settings["CurrProfile"][index] = newval
-            self.settings["Profiles"][self.DDL.get()][index] = newval
+                self.DDL.set(prof)
+            self.settings["Profiles"][prof] = prof, dir_p, dir_g, ext
+            self.DDL.event_generate("<<ComboboxSelected>>")
+            editwin.tp.destroy()
 
-        def ChangeFile(folder, index):
-            while True:
-                newfolder = filedialog.askdirectory(
-                    initialdir=self.settings["CurrProfile"][index],
-                    title=f"Please choose {folder} directory",
-                )
-                if not newfolder:
-                    return
-                oldval = self.settings["CurrProfile"][index]
-                self.settings["CurrProfile"][index] = newfolder
-                if self.settings["CurrProfile"][1] == self.settings["CurrProfile"][2]:
-                    self.settings["CurrProfile"][index] = oldval
-                    messagebox.showwarning(
-                        "Warning: Same folder", "The two directories cannot be the same"
-                    )
-                    continue
-                else:
-                    self.settings["Profiles"][self.DDL.get()][index] = newfolder
-                    break
+        editwin = AddEditWindow(self._root, Change, ok_callback)
+        editwin.tp.configure(background=self.theme.themes[self.currTheme.get()][2])
+        editwin.tp.title("Edit Profile")
 
-        def ok_callback():
-            self.UpdateTree()
-            self.Save()
-            self.editwin.destroy()
+        editwin.entry_profile.state(["!readonly"])
+        editwin.entry_profile.insert(0, self.settings["CurrProfile"][0])
+        editwin.entry_profile.state(["readonly"])
+        editwin.entry_p.state(["!readonly"])
+        editwin.entry_p.insert(0, self.settings["CurrProfile"][1])
+        editwin.entry_p.state(["readonly"])
+        editwin.entry_g.state(["!readonly"])
+        editwin.entry_g.insert(0, self.settings["CurrProfile"][2])
+        editwin.entry_g.state(["readonly"])
+        editwin.entry_ext.state(["!readonly"])
+        editwin.entry_ext.insert(0, self.settings["CurrProfile"][3])
+        editwin.entry_ext.state(["readonly"])
 
-        self.editwin = Toplevel(self._root)
-        editStyle = ttk.Style(self.editwin)
-        editStyle.configure("Edit.TButton", font=("Arial", 10), width=7)
-        self.editwin.configure(background=self.theme.themes[self.currTheme.get()][2])
-        self.editwin.resizable(False, False)
-        coords = self._root.geometry().split("+")
-        geo = list(map(int, coords[0].split("x")))
-        coords.pop(0)
-        coords = list(map(int, coords))
-        w, h = geo
-        x, y = coords
-        self.editwin.geometry(f"260x200+{x+((w//2) - 130)}+{y+((h//2) - 100)}")
-
-        ttk.Label(self.editwin, text="Change personal directory").grid(
-            row=0, column=0, pady=5, padx=5, sticky="w"
-        )
-        ttk.Label(self.editwin, text="Change game's directory").grid(
-            row=1, column=0, pady=5, padx=5, sticky="w"
-        )
-        ttk.Label(self.editwin, text="Change profile name").grid(
-            row=2, column=0, pady=5, padx=5, sticky="w"
-        )
-        ttk.Label(self.editwin, text="Change extension").grid(
-            row=3, column=0, pady=5, padx=5, sticky="w"
-        )
-
-        ttk.Button(
-            self.editwin,
-            text="Change",
-            style="Edit.TButton",
-            command=lambda: ChangeFile("personal", 1),
-        ).grid(row=0, column=1, pady=5, padx=5, sticky="e")
-        ttk.Button(
-            self.editwin,
-            text="Change",
-            style="Edit.TButton",
-            command=lambda: ChangeFile("game", 2),
-        ).grid(row=1, column=1, pady=5, padx=5, sticky="e")
-        ttk.Button(
-            self.editwin,
-            text="Change",
-            style="Edit.TButton",
-            command=lambda: Change("profile name", 0),
-        ).grid(row=2, column=1, pady=5, padx=5, sticky="e")
-        ttk.Button(
-            self.editwin,
-            text="Change",
-            style="Edit.TButton",
-            command=lambda: Change("extension", 3),
-        ).grid(row=3, column=1, pady=5, padx=5, sticky="e")
-
-        ttk.Button(
-            self.editwin, text="OK", style="Edit.TButton", command=ok_callback
-        ).grid(row=4, column=0)
-        ttk.Button(
-            self.editwin,
-            text="Cancel",
-            style="Edit.TButton",
-            command=self.editwin.destroy,
-        ).grid(row=4, column=1, sticky="w")
-        self.editwin.grid_columnconfigure(1, weight=1)
-
-        self.editwin.focus_force()
-        self.editwin.grab_set()
-        self.editwin.wait_window()
+        editwin.tp.focus_force()
+        editwin.tp.grab_set()
+        editwin.tp.wait_window()
 
     def RemoveProfile(self):
         """
@@ -573,9 +618,7 @@ class SavefileManager:
         then selects the next one in the list
         """
         remove = messagebox.askyesno(
-            "Removing Profile",
-            "Are you sure you want to remove the current profile",
-            parent=self._root,
+            "Removing Profile", "Are you sure you want to remove the current profile"
         )
         if not remove:
             return
@@ -589,6 +632,7 @@ class SavefileManager:
             # then change the values in the combobox
             self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
             self.ddlOpt = natsorted(self.ddlOpt)
+            self.ddlOpt.append("Add...")
             self.DDL["values"] = self.ddlOpt
             # Set combobox to the next profile and generate
             # an event to update the current profile and treeviews
@@ -603,6 +647,7 @@ class SavefileManager:
             )
             logging.error("Attempt to remove when there are no profiles")
             return
+        self.settings["ProfileCount"] -= 1
         self.DDL.event_generate("<<ComboboxSelected>>")
 
     def Replace(self):
@@ -642,7 +687,7 @@ class SavefileManager:
         selection_p = self.treeview_p.selection()
         selection_g = self.treeview_g.selection()
 
-        # Warn use if a game file is not selected
+        # Warn user if a game file is not selected
         if not selection_g:
             logging.warning("No selection warning")
             messagebox.showwarning(
@@ -730,9 +775,9 @@ class SavefileManager:
                 "Settings file error", "Couldn't save settings. Check log file"
             )
 
-    def FileUpdater(self):
+    def FileChecker(self):
         if not self.settings["CurrProfile"]:
-            self._root.after(1000, self.FileUpdater)
+            self._root.after(1000, self.FileChecker)
             return
         toSelect_p = (
             self.treeview_p.selection()[0] if self.treeview_p.selection() else ""
@@ -748,12 +793,12 @@ class SavefileManager:
             Path(self.settings["CurrProfile"][2]).stat().st_mtime
         )
 
-        if now - time_p > timedelta(seconds=2) and now - time_p < timedelta(seconds=10):
+        if now - time_p > timedelta(seconds=1) and now - time_p < timedelta(seconds=10):
             self.UpdateTree(tree="P", toSelect_p=toSelect_p)
-        if now - time_g > timedelta(seconds=2) and now - time_g < timedelta(seconds=10):
+        if now - time_g > timedelta(seconds=1) and now - time_g < timedelta(seconds=10):
             self.UpdateTree(tree="G", toSelect_g=toSelect_g)
 
-        self._root.after(1000, self.FileUpdater)
+        self._root.after(1000, self.FileChecker)
 
     def on_close(self):
         self.Save()
