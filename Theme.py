@@ -19,11 +19,12 @@ class Theme:
             },
         )
         self.themes = {
+            # font, background1, background2, foreground, text color, treeview selection
             "Dark": [("Arial", 9), "#212020", "#1f1f1f", "white", "#4287f5"],
             "Dark (Alt)": [("Arial", 9), "#212020", "#1f1f1f", "white", "#4287f5"],
             "vista": [(), "#f0f0f0", "#f0f0f0", "black"],
-            "classic": [(), "#f0f0f0", "#f0f0f0", "black"],
-            "Solarized": [("Arial", 9), "#002b36", "#073642", "white", "#93a1a1"],
+            "Classic": [(), "#f0f0f0", "#f0f0f0", "black"],
+            "Solarized": [("Arial", 9), "#002b36", "#073642", "white", "#586e75"],
         }
         self.style.theme_create(
             "Dark",

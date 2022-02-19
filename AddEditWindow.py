@@ -40,16 +40,28 @@ class AddEditWindow:
         self.entry_ext.grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="w")
 
         ttk.Button(
-            self.tp, text="Choose", style="Edit.TButton", command=lambda: callback(0)
+            self.tp,
+            text="Choose",
+            style="Edit.TButton",
+            command=lambda: callback(0, self),
         ).grid(row=1, column=3, padx=5, pady=5, sticky="e")
         ttk.Button(
-            self.tp, text="Choose", style="Edit.TButton", command=lambda: callback(1)
+            self.tp,
+            text="Choose",
+            style="Edit.TButton",
+            command=lambda: callback(1, self),
         ).grid(row=3, column=3, padx=5, pady=5, sticky="e")
         ttk.Button(
-            self.tp, text="Choose", style="Edit.TButton", command=lambda: callback(2)
+            self.tp,
+            text="Choose",
+            style="Edit.TButton",
+            command=lambda: callback(2, self),
         ).grid(row=5, column=3, padx=5, pady=5, sticky="e")
         ttk.Button(
-            self.tp, text="Choose", style="Edit.TButton", command=lambda: callback(3)
+            self.tp,
+            text="Choose",
+            style="Edit.TButton",
+            command=lambda: callback(3, self),
         ).grid(row=7, column=3, padx=5, pady=5, sticky="e")
 
         ttk.Button(self.tp, text="OK", style="Edit.TButton", command=ok_callback).grid(
