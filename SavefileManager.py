@@ -85,9 +85,7 @@ class SavefileManager:
                 logging.info("Settings file successfully generated")
             except OSError as e:
                 logging.error(f"Couldn't generate settings file {e.strerror}")
-                messagebox.showerror(
-                    "ERROR", "Couldn't make settings file. Check log file"
-                )
+                messagebox.showerror("ERROR", "Couldn't make settings file.")
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # -------------------- GUI INIT  -------------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -303,14 +301,14 @@ class SavefileManager:
             selection = self.treeview_g.selection()[0]
             removed = Path(self.settings["CurrFilesG"][selection])
             backup = self.bakDeleted / (
-                str(datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss")) + removed.name
+                datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
             )
             try:
                 print(backup)
                 shutil.copy2(removed, backup)
             except OSError as e:
                 logging.error(f"Couldn't copy file {e.strerror}")
-                messagebox.showerror("Failed Delete", "Couldn't delete file")
+                messagebox.showerror("FAILED DELETE ERROR", "Couldn't delete file")
                 return
             self.settings["CurrFilesG"].pop(selection)
             self.treeview_g.delete(selection)
@@ -319,20 +317,45 @@ class SavefileManager:
             selection = self.treeview_p.selection()[0]
             removed = Path(self.settings["CurrFilesP"][selection])
             backup = self.bakDeleted / (
-                str(datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss")) + removed.name
+                datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
             )
             try:
                 shutil.copy2(removed, backup)
             except OSError as e:
                 logging.error(f"Couldn't copy file {e.strerror}")
-                messagebox.showerror("Failed Delete", "Couldn't delete file")
+                messagebox.showerror("FAILED DELET ERROR", "Couldn't delete file")
                 return
             self.settings["CurrFilesP"].pop(selection)
             self.treeview_p.delete(selection)
             removed.unlink()
 
     def TreeviewRename(self, tree: str):
-        pass
+        if tree == "G":
+            change = messagebox.askyesno(
+                "Changing game file name",
+                "The game may not recognize the savefile if you rename it.\nAre you sure you want to rename?",
+            )
+            if not change:
+                return
+        newname = askstring(
+            "New name", "Enter new name for the file", parent=self._root
+        )
+        if not newname:
+            return
+        if not newname.endswith(f".{self.settings['CurrProfile'][3]}"):
+            newname += self.settings["CurrProfile"][3]
+        if tree == "P":
+            selection = self.treeview_p.selection()[0]
+            toSelect = self.treeview_p.parent(selection) + newname
+            renamed = Path(self.settings["CurrFilesP"][selection])
+            renamed = renamed.rename(renamed.parent / newname)
+            self.UpdateTree(tree="P", toSelect_p=toSelect)
+        elif tree == "G":
+            selection = self.treeview_g.selection()[0]
+            renamed = Path(self.settings["CurrFilesG"][selection])
+            renamed = renamed.rename(renamed.parent / newname)
+            self.UpdateTree("P", toSelect_g=newname)
+            logging.warning("Game file name changed")
 
     def UpdateTree(
         self, tree: str = "Both", toSelect_p: str = None, toSelect_g: str = None
@@ -450,7 +473,7 @@ class SavefileManager:
     def Choose(self, index, win: AddEditWindow):
         if index == 0:
             while True:
-                new = askstring("Profile Name", "Choose a profile name", parent=win.tp)
+                new = askstring("Profile Name", "Choose a profile name", parent=win)
                 if new == "Add...":
                     logging.warning(f"Invalid name choice '{new}'")
                     messagebox.showwarning(
@@ -472,7 +495,7 @@ class SavefileManager:
             )
             new = filedialog.askdirectory(
                 initialdir=startDir,
-                parent=win.tp,
+                parent=win,
                 title="Choose your OWN personal saves folder",
             )
             if new:
@@ -488,7 +511,7 @@ class SavefileManager:
             )
             new = filedialog.askdirectory(
                 initialdir=startDir,
-                parent=win.tp,
+                parent=win,
                 title="Choose the GAME'S  saves folder",
             )
             if new:
@@ -500,7 +523,7 @@ class SavefileManager:
             new = askstring(
                 "File Extension",
                 "Enter the file extension of the savefiles e.g. .sgd,.save,...",
-                parent=win.tp,
+                parent=win,
             )
             if new:
                 if not new.startswith("."):
@@ -510,16 +533,16 @@ class SavefileManager:
                 win.entry_ext.insert(0, new)
                 win.entry_ext.state(["readonly"])
         if not new:
-            win.tp.grab_set()
-            win.tp.wait_window()
+            win.grab_set()
+            win.wait_window()
             return
         if not win.entry_ext.get() and (index == 1 or index == 2):
             win.entry_ext.state(["!readonly"])
             win.entry_ext.delete(0, END)
             win.entry_ext.insert(0, Helpers.GetExt(Path(new)))
             win.entry_ext.state(["readonly"])
-        win.tp.grab_set()
-        win.tp.wait_window()
+        win.grab_set()
+        win.wait_window()
 
     def AddProfile(self):
         """
@@ -561,16 +584,16 @@ class SavefileManager:
                 self.button_replace.state(["!disabled"])
                 self.button_backup.state(["!disabled"])
             self.settings["ProfileCount"] += 1
-            addWin.tp.destroy()
+            addWin.destroy()
             return True
 
         addWin = AddEditWindow(self._root, self.Choose, ok_callback)
-        addWin.tp.configure(background=self.theme.themes[self.currTheme.get()][2])
-        addWin.tp.title("Add Profile")
+        addWin.configure(background=self.theme.themes[self.currTheme.get()][2])
+        addWin.title("Add Profile")
 
-        addWin.tp.focus_force()
-        addWin.tp.grab_set()
-        addWin.tp.wait_window()
+        addWin.focus_force()
+        addWin.grab_set()
+        addWin.wait_window()
         return False
 
     def EditProfile(self):
@@ -597,11 +620,11 @@ class SavefileManager:
                 self.DDL.set(prof)
             self.settings["Profiles"][prof] = prof, dir_p, dir_g, ext
             self.DDL.event_generate("<<ComboboxSelected>>")
-            editwin.tp.destroy()
+            editwin.destroy()
 
         editwin = AddEditWindow(self._root, self.Choose, ok_callback)
-        editwin.tp.configure(background=self.theme.themes[self.currTheme.get()][2])
-        editwin.tp.title("Edit Profile")
+        editwin.configure(background=self.theme.themes[self.currTheme.get()][2])
+        editwin.title("Edit Profile")
 
         editwin.entry_profile.state(["!readonly"])
         editwin.entry_profile.insert(0, self.settings["CurrProfile"][0])
@@ -616,9 +639,9 @@ class SavefileManager:
         editwin.entry_ext.insert(0, self.settings["CurrProfile"][3])
         editwin.entry_ext.state(["readonly"])
 
-        editwin.tp.focus_force()
-        editwin.tp.grab_set()
-        editwin.tp.wait_window()
+        editwin.focus_force()
+        editwin.grab_set()
+        editwin.wait_window()
 
     def RemoveProfile(self):
         """
@@ -650,10 +673,10 @@ class SavefileManager:
             # set ddl to empty string
             self.DDL.set("")
         except KeyError:
+            logging.warning("Attempt to remove when there are no profiles")
             messagebox.showwarning(
                 "No profiles", "No profiles to remove. Add one first"
             )
-            logging.warning("Attempt to remove when there are no profiles")
             return
         self.settings["ProfileCount"] -= 1
         self.DDL.event_generate("<<ComboboxSelected>>")
@@ -687,7 +710,7 @@ class SavefileManager:
             logging.info("Successful replace")
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
-            messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
+            messagebox.showerror("COPY ERORR", "Couldn't copy the file.")
 
         # blink the selected game file to inidicate successful replace
         self.treeview_g.selection_remove(selection_g[0])
@@ -773,11 +796,12 @@ class SavefileManager:
             logging.info("Successful backup")
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
-            messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
+            messagebox.showerror("COPY ERORR", "Couldn't copy the file.")
         self.UpdateTree(tree="P", toSelect_p=toSelect_p)
         self.Save()
 
     def Save(self):
+        """Save all the settings to the settings file"""
         coords = self._root.geometry().split("+")
         geo = coords[0].split("x")
         self.settings["Xcoord"] = coords[1]
@@ -789,9 +813,7 @@ class SavefileManager:
             logging.info("Settings saved correctly")
         except OSError as e:
             logging.error(f"Couldn't save settings {e.strerror}")
-            messagebox.showerror(
-                "Settings file error", "Couldn't save settings. Check log file"
-            )
+            messagebox.showerror("SAVE ERROR", "Couldn't save settings.")
 
     def FileChecker(self):
         """
