@@ -20,6 +20,7 @@ from AddEditWindow import AddEditWindow
 import Helpers
 
 # TODO:
+# Tooltips
 # -[x] Replace method
 # -[x] Backup method
 # -[x] Add treeview scrollbar
@@ -27,11 +28,11 @@ import Helpers
 # -[x] Double clicking labels opens directory
 # -[x] auto update treeviews
 # -[x] Maintain selection after update
-# create backups of files before replacing and backup
+# -[x] create backups of files before replacing
 # Resizing
 # - [/] Remember window coordinates (& dimensions)
-# Arkham version
-#   auto convert for arkham version?
+# -[/] Arkham specific stuff
+# auto convert for arkham version?
 # center message boxes
 # -[x] Themes
 # -[x] Add profile option in ddl
@@ -39,7 +40,7 @@ import Helpers
 # -[x] Autofill file extension when adding profile
 # -[x] show current choices in edit profile window
 # -[x] Indication that file was repalced
-# Add context menu for treeview
+# -[x] Add context menu for treeview
 
 
 class SavefileManager:
@@ -64,21 +65,26 @@ class SavefileManager:
         )
         # if json file isn't there for wahtever reason
         # create a new one
+        self.settings = {
+            "CurrFilesP": {},
+            "CurrFilesG": {},
+            "CurrProfile": [],
+            "Profiles": {},
+            "Xcoord": 0,
+            "Ycoord": 0,
+            "Theme": "",
+            "ProfileCount": 0,
+        }
         if self.settingsPath.exists():
             with self.settingsPath.open() as f:
-                self.settings = json.load(f)
+                settings = json.load(f)
+            for key, val in self.settings.items():
+                if key not in settings:
+                    settings[key] = val
+            self.settings = settings
+            self.settings["ProfileCount"] = len(self.settings["Profiles"])
             logging.info("Successful settings file load")
         else:
-            self.settings = {
-                "CurrFilesP": {},
-                "CurrFilesG": {},
-                "CurrProfile": [],
-                "Profiles": {},
-                "Xcoord": "",
-                "Ycoord": "",
-                "Theme": "",
-                "ProfileCount": 0,
-            }
             try:
                 with self.settingsPath.open("w") as f:
                     json.dump(self.settings, f, indent=4)
@@ -92,29 +98,33 @@ class SavefileManager:
 
         # keep a refrence of the base window
         self._root = root
-        self._root.iconbitmap(Path().resolve() / "images/Savefile Replacer Icon.ico")
+        self._root.iconbitmap(
+            default=Path().resolve() / "images/Savefile Replacer Icon.ico"
+        )
         self.theme = Theme(self._root)
 
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         root.title("Savefile Manager")
         root.resizable(False, False)
+        root.minsize(490, 485)
         self.geo = ("490", "485")
 
-        if int(self.settings["Xcoord"]) + 480 > root.winfo_screenwidth():
-            self.settings["Xcoord"] = root.winfo_screenwidth() - 480
+        if self.settings["Xcoord"] + 490 > root.winfo_screenwidth():
+            self.settings["Xcoord"] = root.winfo_screenwidth() - 490
 
-        if int(self.settings["Ycoord"]) + 480 > root.winfo_screenheight():
-            self.settings["Ycoord"] = root.winfo_screenheight() - 480
+        if self.settings["Ycoord"] + 485 > root.winfo_screenheight():
+            self.settings["Ycoord"] = root.winfo_screenheight() - 485
 
-        root.geometry(
-            f"{'x'.join(self.geo)}+{self.settings['Xcoord']}+{self.settings['Ycoord']}"
-        )
+        geo = "x".join(self.geo)
+        print(f"{geo}+{self.settings['Xcoord']}+{self.settings['Ycoord']}")
+        root.geometry(f"{geo}+{self.settings['Xcoord']}+{self.settings['Ycoord']}")
 
         # -------------------- HEADER FRAME --------------------
         self.frame_header = ttk.Frame(root, width=self.geo[0], height=100)
-        self.frame_header.pack()
+        self.frame_header.pack(expand=True, fill=BOTH)
         self.frame_header.grid_propagate(False)
-        self.frame_header.columnconfigure((0, 1), weight=1)
+        self.frame_header.grid_columnconfigure((0, 1), weight=1)
+        self.frame_header.grid_rowconfigure((0, 3), weight=1)
 
         # MENUBAR
         root.option_add("*tearOff", False)
@@ -583,7 +593,7 @@ class SavefileManager:
             if self.button_replace.instate(["disabled"]):
                 self.button_replace.state(["!disabled"])
                 self.button_backup.state(["!disabled"])
-            self.settings["ProfileCount"] += 1
+            self.settings["ProfileCount"] = len(self.settings["Profiles"])
             addWin.destroy()
             return True
 
@@ -678,7 +688,7 @@ class SavefileManager:
                 "No profiles", "No profiles to remove. Add one first"
             )
             return
-        self.settings["ProfileCount"] -= 1
+        self.settings["ProfileCount"] = len(self.settings["Profiles"])
         self.DDL.event_generate("<<ComboboxSelected>>")
 
     def Replace(self):
@@ -708,6 +718,13 @@ class SavefileManager:
         try:
             shutil.copy2(src, dst)
             logging.info("Successful replace")
+            backup = self.bak / (
+                datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + Path(dst).name
+            )
+            shutil.copy2(dst, backup)
+            if "BAK" in dst:
+                Helpers.AKReplace(src, dst, self.settings)
+            logging.info("Successful backup of replaced game file")
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
             messagebox.showerror("COPY ERORR", "Couldn't copy the file.")
@@ -792,7 +809,10 @@ class SavefileManager:
             dst = Path(self.settings["CurrProfile"][1]) / backupName
 
         try:
-            shutil.copy(src, dst)
+            if "BAK" in src:
+                Helpers.AKBackup(src, dst, self.settings)
+            else:
+                shutil.copy(src, dst)
             logging.info("Successful backup")
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
@@ -804,8 +824,8 @@ class SavefileManager:
         """Save all the settings to the settings file"""
         coords = self._root.geometry().split("+")
         geo = coords[0].split("x")
-        self.settings["Xcoord"] = coords[1]
-        self.settings["Ycoord"] = coords[2]
+        self.settings["Xcoord"] = int(coords[1])
+        self.settings["Ycoord"] = int(coords[2])
         self.settings["Theme"] = self.currTheme.get()
         try:
             with open(self.settingsPath, "w") as f:

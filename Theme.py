@@ -19,7 +19,7 @@ class Theme:
             },
         )
         self.themes = {
-            # font, background1, background2, foreground, text color, treeview selection
+            # font, background1, background2, foreground/text color, treeview selection
             "Dark": [("Arial", 9), "#212020", "#1f1f1f", "white", "#4287f5"],
             "Dark (Alt)": [("Arial", 9), "#212020", "#1f1f1f", "white", "#4287f5"],
             "vista": [(), "#f0f0f0", "#f0f0f0", "black"],

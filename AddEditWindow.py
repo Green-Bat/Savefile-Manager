@@ -4,7 +4,7 @@ from tkinter import ttk
 
 class AddEditWindow(Toplevel):
     def __init__(self, root: Tk, callback, ok_callback):
-        super().__init__()
+        super().__init__(root)
         self.style = ttk.Style(self)
         self.style.configure("Edit.TButton", font=("Arial", 10), width=7)
         self.resizable(False, False)
