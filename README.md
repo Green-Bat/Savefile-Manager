@@ -1,4 +1,4 @@
-# Savefile-Replacer
+# Savefile-Manager
 A program to help manage savefiles (backup/replace), originally made for the Batman: Arkham series, but can now be used with any type of file.
 
 ## How to Use:
