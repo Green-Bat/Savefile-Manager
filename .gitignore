@@ -4,7 +4,9 @@ dist/
 
 
 *.png
+*.zip
 *.ico
+**/*.md
 !images/*.ico
 *.json
 *.exe

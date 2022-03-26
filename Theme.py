@@ -30,6 +30,7 @@ class Theme:
             "Dark",
             parent="clam",
             settings={
+                "Tk": {"configure": {"background": self.themes["Dark"][2]}},
                 "TButton": {
                     "configure": {
                         "background": self.themes["Dark"][1],
@@ -66,6 +67,7 @@ class Theme:
                     },
                     "map": {"background": [("selected", self.themes["Dark"][4])]},
                 },
+                "Treeview.Item": {"configure": {"indicatormargins": 5}},
                 "Vertical.TScrollbar": {
                     "configure": {
                         "background": self.themes["Dark"][1],
@@ -81,6 +83,7 @@ class Theme:
             "Dark (Alt)",
             parent="alt",
             settings={
+                "Tk": {"configure": {"background": self.themes["Dark"][2]}},
                 "TButton": {
                     "configure": {
                         "background": self.themes["Dark"][1],
@@ -117,6 +120,7 @@ class Theme:
                     },
                     "map": {"background": [("selected", self.themes["Dark"][4])]},
                 },
+                "Treeview.Item": {"configure": {"indicatormargins": 5}},
                 "Vertical.TScrollbar": {
                     "configure": {
                         "background": self.themes["Dark"][1],
@@ -131,6 +135,7 @@ class Theme:
             "Solarized",
             parent="default",
             settings={
+                "Tk": {"configure": {"background": self.themes["Solarized"][2]}},
                 "TButton": {
                     "configure": {
                         "background": self.themes["Solarized"][1],
@@ -167,6 +172,7 @@ class Theme:
                     },
                     "map": {"background": [("selected", self.themes["Solarized"][4])]},
                 },
+                "Treeview.Item": {"configure": {"indicatormargins": 5}},
                 "Vertical.TScrollbar": {
                     "configure": {
                         "background": self.themes["Solarized"][1],
@@ -181,11 +187,9 @@ class Theme:
         if theme == "Classic":
             theme = "vista"
         if theme in self.themes:
-            self.root.configure(background=self.themes[theme][2])
-            if widgets:
-                for widget in widgets:
-                    widget.configure(
-                        background=self.themes[theme][1],
-                        foreground=self.themes[theme][3],
-                    )
+            for widget in widgets:
+                widget.configure(
+                    background=self.themes[theme][1],
+                    foreground=self.themes[theme][3],
+                )
             self.style.theme_use(theme)

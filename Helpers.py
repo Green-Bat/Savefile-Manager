@@ -10,7 +10,7 @@ def GetExt(p: Path | str) -> str:
         if not p.exists():
             raise FileNotFoundError
     if not p.is_dir():
-        return
+        return ""
 
     exts = {}
     for file in p.iterdir():

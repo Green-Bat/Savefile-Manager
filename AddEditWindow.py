@@ -3,16 +3,22 @@ from tkinter import ttk
 
 
 class AddEditWindow(Toplevel):
-    def __init__(self, root: Tk, callback, ok_callback):
+    def __init__(self, root: Tk, callback, ok_callback, title: str = None):
         super().__init__(root)
         self.style = ttk.Style(self)
         self.style.configure("Edit.TButton", font=("Arial", 10), width=7)
+        self.configure(bg=self.style.lookup("Tk", "background"))
         self.resizable(False, False)
+        self.wm_title(title)
 
+        # get coords and dimensions of root window
         coords = root.geometry().split("+")
         w, h = list(map(int, coords[0].split("x")))
         coords.pop(0)
         x, y = list(map(int, coords))
+
+        # set the geometry of window to half that of root
+        # and spawn it centered with it
         self.geometry(f"350x300+{x+((w//2)-175)}+{y+((h//2)-150)}")
         self.grid_columnconfigure((0, 1), weight=1)
 

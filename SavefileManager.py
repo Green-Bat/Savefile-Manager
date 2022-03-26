@@ -17,10 +17,11 @@ from natsort import os_sorted, natsorted
 # my modules
 from Theme import Theme
 from AddEditWindow import AddEditWindow
+from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
-# Tooltips
+# -[/] Tooltips
 # -[x] Replace method
 # -[x] Backup method
 # -[x] Add treeview scrollbar
@@ -30,9 +31,9 @@ import Helpers
 # -[x] Maintain selection after update
 # -[x] create backups of files before replacing
 # Resizing
-# - [/] Remember window coordinates (& dimensions)
+# -[/] Remember window coordinates (& dimensions)
 # -[/] Arkham specific stuff
-# auto convert for arkham version?
+# auto convert for arkham?
 # center message boxes
 # -[x] Themes
 # -[x] Add profile option in ddl
@@ -116,7 +117,7 @@ class SavefileManager:
             self.settings["Ycoord"] = root.winfo_screenheight() - 485
 
         geo = "x".join(self.geo)
-        print(f"{geo}+{self.settings['Xcoord']}+{self.settings['Ycoord']}")
+        # print(f"{geo}+{self.settings['Xcoord']}+{self.settings['Ycoord']}")
         root.geometry(f"{geo}+{self.settings['Xcoord']}+{self.settings['Ycoord']}")
 
         # -------------------- HEADER FRAME --------------------
@@ -128,9 +129,7 @@ class SavefileManager:
 
         # MENUBAR
         root.option_add("*tearOff", False)
-        self.menubar = Menu(
-            self.frame_header,
-        )
+        self.menubar = Menu(self.frame_header)
         root.config(menu=self.menubar)
         self.options = Menu(self.menubar)
         self.options.add_command(label="Add", command=self.AddProfile)
@@ -162,14 +161,13 @@ class SavefileManager:
         self.currTheme.trace_add(
             "write",
             callback=lambda var, index, mode: self.theme.SetTheme(
-                self.currTheme.get(), self.options, self.themesMenu
+                self.currTheme.get(),
+                self.options,
+                self.themesMenu,
+                self.treeMenu_g,
+                self.treeMenu_p,
             ),
         )
-
-        if self.settings["Theme"]:
-            self.currTheme.set(self.settings["Theme"])
-        else:
-            self.currTheme.set("Dark")
 
         # DropDownList
         ttk.Label(
@@ -212,6 +210,7 @@ class SavefileManager:
             text="Current game directory: " + label_g,
             wraplength=int(self.geo[0]),
         )
+        # double clicking the paths will open the folder in file explorer
         self.PathLabel_p.bind(
             "<Double-Button-1>",
             lambda e: startfile(self.settings["CurrProfile"][1]),
@@ -235,10 +234,7 @@ class SavefileManager:
             self.frame_body, selectmode="browse", height=17, show="tree"
         )
         self.treeview_g = ttk.Treeview(
-            self.frame_body,
-            selectmode="browse",
-            height=10,
-            show="tree",
+            self.frame_body, selectmode="browse", height=10, show="tree"
         )
         # Add scrollbar
         self.yscroll = ttk.Scrollbar(
@@ -251,14 +247,10 @@ class SavefileManager:
         self.frame_button = ttk.Frame(self.frame_body)
         self.frame_button.grid(row=0, column=1)
         self.button_replace = ttk.Button(
-            self.frame_button,
-            text="=>",
-            command=self.Replace,
+            self.frame_button, text="=>", command=self.Replace
         )
         self.button_backup = ttk.Button(
-            self.frame_button,
-            text="<=",
-            command=self.Backup,
+            self.frame_button, text="<=", command=self.Backup
         )
         self.button_replace.grid(row=0, column=0, sticky="ns", pady=5)
         self.button_backup.grid(row=1, column=0, sticky="ns", pady=5)
@@ -282,6 +274,7 @@ class SavefileManager:
         )
         self.treeview_g.bind("<Button-3>", self.TreeviewMenu)
         self.treeview_p.bind("<Button-3>", self.TreeviewMenu)
+        TVToolTip(root, self.treeview_p, self.treeview_g)
         # -------------------- END OF BODY FRAME --------------------
         # Fill tree if there is an exisiting profile
         # otherwise disable the buttons
@@ -291,11 +284,17 @@ class SavefileManager:
             self.button_backup.state(["disabled"])
             self.button_replace.state(["disabled"])
         root.after(1000, self.FileChecker)
+        # Set theme
+        if self.settings["Theme"]:
+            self.currTheme.set(self.settings["Theme"])
+        else:
+            self.currTheme.set("Dark")
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # --------------------- END OF INIT ----------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     def TreeviewMenu(self, event: Event):
+        """Context menu for treeview"""
         item_g = self.treeview_g.identify_row(event.y)
         item_p = self.treeview_p.identify_row(event.y)
         if item_g and self.treeview_g.selection():
@@ -314,7 +313,6 @@ class SavefileManager:
                 datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
             )
             try:
-                print(backup)
                 shutil.copy2(removed, backup)
             except OSError as e:
                 logging.error(f"Couldn't copy file {e.strerror}")
@@ -435,7 +433,7 @@ class SavefileManager:
         """
         for folder in path.iterdir():
             if folder.is_dir():
-                # use folder name as tree id
+                # use folder name as tree iid
                 # for subfolder use folder name concatenated with subfolder name
                 Parentiid = self.treeview_p.insert(
                     Parent, "end", Parent + folder.name, text=folder.name
@@ -556,9 +554,9 @@ class SavefileManager:
 
     def AddProfile(self):
         """
-        Ask user to add a profile by asking for two directories,
-        a personal one and the game's save folder,
-        a profile name, and a file extension, then save it
+        Asks user to add a profile by asking for two directories,
+        a personal one and the game's savefile folder,
+        a profile name, and a file extension, then saves it
         """
 
         def ok_callback():
@@ -597,9 +595,7 @@ class SavefileManager:
             addWin.destroy()
             return True
 
-        addWin = AddEditWindow(self._root, self.Choose, ok_callback)
-        addWin.configure(background=self.theme.themes[self.currTheme.get()][2])
-        addWin.title("Add Profile")
+        addWin = AddEditWindow(self._root, self.Choose, ok_callback, "Add Profile")
 
         addWin.focus_force()
         addWin.grab_set()
@@ -607,6 +603,9 @@ class SavefileManager:
         return False
 
     def EditProfile(self):
+        """
+        Allows user to edit the currently selected profile
+        """
         if not self.settings["Profiles"]:
             logging.warning("attempt to edit when no profiles exist")
             messagebox.showwarning("No profiles", "No profiles exist. Add one first")
@@ -632,9 +631,7 @@ class SavefileManager:
             self.DDL.event_generate("<<ComboboxSelected>>")
             editwin.destroy()
 
-        editwin = AddEditWindow(self._root, self.Choose, ok_callback)
-        editwin.configure(background=self.theme.themes[self.currTheme.get()][2])
-        editwin.title("Edit Profile")
+        editwin = AddEditWindow(self._root, self.Choose, ok_callback, "Edit Profile")
 
         editwin.entry_profile.state(["!readonly"])
         editwin.entry_profile.insert(0, self.settings["CurrProfile"][0])
@@ -734,6 +731,10 @@ class SavefileManager:
         self._root.after(250, self.treeview_g.selection_set, selection_g[0])
 
     def Backup(self):
+        """
+        Creates a copy of the selected game file
+        and puts it in the personal folder
+        """
         overwrite, toSub = False, True
         ext = self.settings["CurrProfile"][3]
         selection_p = self.treeview_p.selection()

@@ -1,18 +1,19 @@
 # Savefile-Replacer
-A program to help manage savefiles (backup/replace), originally made for the Batman: Arkham series, but can now be used with any file extension.
+A program to help manage savefiles (backup/replace), originally made for the Batman: Arkham series, but can now be used with any type of file.
 
 ## How to Use:
 
+## Options
+### Add
+- A popup window will appear asking you for the name of the profile, your own personal saves folder, and the game's saves folder
 
-- Click "Add a game"
+- When choosing GAME'S savefiles folder, if you're not sure where this is, check PCGamingWiki: http://pcgamingwiki.com/
 
-- Choose a folder which will be YOUR OWN personal folder that stores backedup savefiles
+### Edit
+Allows you to edit the current profile
 
-- Choose the folder that contains the GAME'S savefiles. If you're not sure where this is, check PCGamingWiki: http://pcgamingwiki.com/
-
-- Then you choose the name you want it to be saved as.
-
-Remove current game will remove the game you currently have selected.
+### Remove
+Removes the profile you currently have selected.
 
 => is the replace button. You choose a file from your personal files list (on the left) and a 
 file from the game files list (on the right) and then click the button. It will overwrite* 
