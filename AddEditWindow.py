@@ -5,6 +5,9 @@ from tkinter import ttk
 class AddEditWindow(Toplevel):
     def __init__(self, root: Tk, callback, ok_callback, title: str = None):
         super().__init__(root)
+        root.wm_attributes("-disabled", True)
+        self.wm_protocol("WM_DELETE_WINDOW", self.on_close)
+        self.root = root
         self.style = ttk.Style(self)
         self.style.configure("Edit.TButton", font=("Arial", 10), width=7)
         self.configure(bg=self.style.lookup("Tk", "background"))
@@ -74,5 +77,12 @@ class AddEditWindow(Toplevel):
             row=8, column=0, padx=5, pady=5
         )
         ttk.Button(
-            self, text="Cancel", style="Edit.TButton", command=self.destroy
+            self, text="Cancel", style="Edit.TButton", command=self.on_close
         ).grid(row=8, column=1, padx=5, pady=5)
+        self.focus_force()
+        self.grab_set()
+        # self.wait_window()
+
+    def on_close(self):
+        self.root.wm_attributes("-disabled", False)
+        self.destroy()

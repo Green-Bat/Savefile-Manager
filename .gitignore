@@ -11,5 +11,6 @@ dist/
 *.json
 *.exe
 *.spec
+*.txt
 .vscode
 config

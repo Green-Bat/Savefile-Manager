@@ -55,6 +55,7 @@ def AKBackup(src: Path | str, dst: Path | str, settings):
     for i in range(3):
         file = f"{src.stem[0:-1]}{i}{settings['CurrProfile'][3]}"
         if file in settings["CurrFilesG"]:
+            src = src.parent / file
             filetimes[file] = datetime.fromtimestamp(src.stat().st_mtime)
     file = max(filetimes, key=filetimes.get)
     try:

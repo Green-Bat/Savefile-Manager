@@ -42,6 +42,13 @@ import Helpers
 # -[x] show current choices in edit profile window
 # -[x] Indication that file was repalced
 # -[x] Add context menu for treeview
+# -[x] Purge log file every week
+# -[x] Fix renaming with context menu
+# -[x] Handle corrupt settings file
+# -[x] Fix spamming replace button
+# -[x] Backing up to subfolder if any file from that subfolder is highlighted
+# -[x] Auto update subfolders
+# -[x] Fix issue with AKBackup
 
 
 class SavefileManager:
@@ -54,16 +61,11 @@ class SavefileManager:
         self.logpath = self.configPath / "log.log"
         self.bak = self.configPath / "backups"
         self.bakDeleted = self.configPath / "backups/Deleted"
-
+        # create any directories if they are missing
         self.configPath.mkdir(exist_ok=True)
         self.bak.mkdir(exist_ok=True)
         self.bakDeleted.mkdir(exist_ok=True)
 
-        # setup logging
-        fmt = "%(levelname)s %(asctime)s %(message)s"
-        logging.basicConfig(
-            filename=self.logpath, filemode="w", level=logging.DEBUG, format=fmt
-        )
         # if json file isn't there for wahtever reason
         # create a new one
         self.settings = {
@@ -75,17 +77,47 @@ class SavefileManager:
             "Ycoord": 0,
             "Theme": "",
             "ProfileCount": 0,
+            "LogTime": str(datetime.now()),
         }
-        if self.settingsPath.exists():
-            with self.settingsPath.open() as f:
+        # log format
+        fmt = "%(levelname)s %(asctime)s %(message)s"
+        try:
+            with self.settingsPath.open("r") as f:
                 settings = json.load(f)
+            # initialize settings with default values if they are missing
             for key, val in self.settings.items():
                 if key not in settings:
                     settings[key] = val
+            # make sure settings don't have extra/unwanted values
+            for key in list(settings.keys()):
+                if key not in self.settings:
+                    del settings[key]
             self.settings = settings
             self.settings["ProfileCount"] = len(self.settings["Profiles"])
-            logging.info("Successful settings file load")
-        else:
+            # setup logging
+            # purge the log file and backups every week
+            weekAgo = (
+                datetime.now()
+                - datetime.strptime(self.settings["LogTime"], "%Y-%m-%d %H:%M:%S.%f")
+            ) > timedelta(weeks=1)
+            logging.basicConfig(
+                filename=self.logpath,
+                filemode="w" if weekAgo else "a",
+                level=logging.DEBUG,
+                format=fmt,
+            )
+            if weekAgo:
+                self.settings["LogTime"] = str(datetime.now())
+                for file in self.bak.iterdir():
+                    if file.is_file():
+                        file.unlink()
+                for file in self.bakDeleted.iterdir():
+                    if file.is_file():
+                        file.unlink()
+            logging.info("Settings file successfully loaded")
+        except (FileNotFoundError, json.JSONDecodeError):
+            logging.basicConfig(filename=self.logpath, level=logging.DEBUG, format=fmt)
+            logging.error("Settings file missing/corrupt")
             try:
                 with self.settingsPath.open("w") as f:
                     json.dump(self.settings, f, indent=4)
@@ -260,14 +292,14 @@ class SavefileManager:
 
         self.treeMenu_g = Menu()
         self.treeMenu_g.add_command(
-            label="Rename", command=lambda: self.TreeviewRename("G")
+            label="Rename", command=lambda: self.TreeviewRename("G", self.treeview_g)
         )
         self.treeMenu_g.add_command(
             label="Delete", command=lambda: self.TreeviewDelete("G")
         )
         self.treeMenu_p = Menu()
         self.treeMenu_p.add_command(
-            label="Rename", command=lambda: self.TreeviewRename("P")
+            label="Rename", command=lambda: self.TreeviewRename("P", self.treeview_p)
         )
         self.treeMenu_p.add_command(
             label="Delete", command=lambda: self.TreeviewDelete("P")
@@ -295,17 +327,22 @@ class SavefileManager:
 
     def TreeviewMenu(self, event: Event):
         """Context menu for treeview"""
-        item_g = self.treeview_g.identify_row(event.y)
-        item_p = self.treeview_p.identify_row(event.y)
+        item_g = self.treeview_g.identify_row(
+            event.y
+        ) and self.treeview_g.identify_column(event.x)
+        item_p = self.treeview_p.identify_row(
+            event.y
+        ) and self.treeview_p.identify_column(event.x)
         if item_g and self.treeview_g.selection():
             self.treeMenu_g.post(event.x_root, event.y_root)
         elif item_p and self.treeview_p.selection():
             self.treeMenu_p.post(event.x_root, event.y_root)
 
     def TreeviewDelete(self, tree: str):
-        messagebox.askyesno(
+        if not messagebox.askyesno(
             "Deleting file", "Are you sure you want to delete the file?"
-        )
+        ):
+            return
         if tree == "G":
             selection = self.treeview_g.selection()[0]
             removed = Path(self.settings["CurrFilesG"][selection])
@@ -337,7 +374,7 @@ class SavefileManager:
             self.treeview_p.delete(selection)
             removed.unlink()
 
-    def TreeviewRename(self, tree: str):
+    def TreeviewRename(self, tree: str, treeview: ttk.Treeview):
         if tree == "G":
             change = messagebox.askyesno(
                 "Changing game file name",
@@ -345,24 +382,54 @@ class SavefileManager:
             )
             if not change:
                 return
+
+        selection = treeview.selection()[0]
+        defaultVal = treeview.item(selection, "text")
         newname = askstring(
-            "New name", "Enter new name for the file", parent=self._root
+            "New name",
+            "Enter new name for the file",
+            parent=self._root,
+            initialvalue=defaultVal,
         )
         if not newname:
             return
-        if not newname.endswith(f".{self.settings['CurrProfile'][3]}"):
-            newname += self.settings["CurrProfile"][3]
+
+        # add file extention to newname if it isn't a folder
+        if not newname.endswith(f"{self.settings['CurrProfile'][3]}"):
+            if (
+                tree == "P"
+                and not Path(self.settings["CurrFilesP"][selection]).is_dir()
+            ) or tree == "G":
+                newname += self.settings["CurrProfile"][3]
+        overwrite = True
         if tree == "P":
-            selection = self.treeview_p.selection()[0]
             toSelect = self.treeview_p.parent(selection) + newname
             renamed = Path(self.settings["CurrFilesP"][selection])
-            renamed = renamed.rename(renamed.parent / newname)
-            self.UpdateTree(tree="P", toSelect_p=toSelect)
+            lowerCaseDict = set(k.lower() for k in self.settings["CurrFilesP"])
+            # if selection is a file in a subfolder only check name in that subfolder
+            if self.treeview_p.parent(selection):
+                exists = toSelect.lower() in lowerCaseDict
+            else:
+                exists = newname.lower() in lowerCaseDict
+            if exists:
+                overwrite = messagebox.askyesno(
+                    "Already exists",
+                    "File name already exists would you like to overwrite it?",
+                )
+            if overwrite:
+                renamed = renamed.replace(renamed.parent / newname)
+                self.UpdateTree(tree="P", toSelect_p=toSelect)
         elif tree == "G":
-            selection = self.treeview_g.selection()[0]
             renamed = Path(self.settings["CurrFilesG"][selection])
-            renamed = renamed.rename(renamed.parent / newname)
-            self.UpdateTree("P", toSelect_g=newname)
+            lowerCaseDict = set(k.lower() for k in self.settings["CurrFilesG"])
+            if newname.lower() in lowerCaseDict:
+                overwrite = messagebox.askyesno(
+                    "Already exists",
+                    "File name already exists would you like to overwrite it?",
+                )
+            if overwrite:
+                renamed = renamed.replace(renamed.parent / newname)
+                self.UpdateTree(tree="G", toSelect_g=newname)
             logging.warning("Game file name changed")
 
     def UpdateTree(
@@ -416,7 +483,7 @@ class SavefileManager:
                 if toSelect_g and toSelect_g in self.settings["CurrFilesG"]:
                     self.treeview_g.selection_set(toSelect_g)
                     self.treeview_g.see(toSelect_g)
-                    self.treeview_g.see()
+                    self.treeview_g.focus(toSelect_g)
 
     def AddSubfolders(self, path: Path, Parent=""):
         """
@@ -592,14 +659,10 @@ class SavefileManager:
                 self.button_replace.state(["!disabled"])
                 self.button_backup.state(["!disabled"])
             self.settings["ProfileCount"] = len(self.settings["Profiles"])
-            addWin.destroy()
+            addWin.on_close()
             return True
 
         addWin = AddEditWindow(self._root, self.Choose, ok_callback, "Add Profile")
-
-        addWin.focus_force()
-        addWin.grab_set()
-        addWin.wait_window()
         return False
 
     def EditProfile(self):
@@ -629,7 +692,7 @@ class SavefileManager:
                 self.DDL.set(prof)
             self.settings["Profiles"][prof] = prof, dir_p, dir_g, ext
             self.DDL.event_generate("<<ComboboxSelected>>")
-            editwin.destroy()
+            editwin.on_close()
 
         editwin = AddEditWindow(self._root, self.Choose, ok_callback, "Edit Profile")
 
@@ -645,10 +708,6 @@ class SavefileManager:
         editwin.entry_ext.state(["!readonly"])
         editwin.entry_ext.insert(0, self.settings["CurrProfile"][3])
         editwin.entry_ext.state(["readonly"])
-
-        editwin.focus_force()
-        editwin.grab_set()
-        editwin.wait_window()
 
     def RemoveProfile(self):
         """
@@ -680,7 +739,6 @@ class SavefileManager:
             # set ddl to empty string
             self.DDL.set("")
         except KeyError:
-            logging.warning("Attempt to remove when there are no profiles")
             messagebox.showwarning(
                 "No profiles", "No profiles to remove. Add one first"
             )
@@ -698,7 +756,6 @@ class SavefileManager:
         selection_g = self.treeview_g.selection()
         # Make sure there is an actual selection
         if not (selection_p and selection_g):
-            logging.warning("No selection warning")
             messagebox.showwarning(
                 "No selection",
                 "Please choose a file to copy from the left list\nand a file to overwrite from the right list",
@@ -706,22 +763,21 @@ class SavefileManager:
             return
         src = self.settings["CurrFilesP"][selection_p[0]]
         if Path(src).is_dir():
-            logging.warning("Folder chosen warning")
             messagebox.showwarning(
                 "Choose a file", "Please choose a file not a folder from the left list"
             )
             return
+        # Disable button to prevent it from being spammed
+        self.button_replace.state(["disabled"])
         dst = self.settings["CurrFilesG"][selection_g[0]]
         try:
             shutil.copy2(src, dst)
-            logging.info("Successful replace")
             backup = self.bak / (
                 datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + Path(dst).name
             )
             shutil.copy2(dst, backup)
             if "BAK" in dst:
                 Helpers.AKReplace(src, dst, self.settings)
-            logging.info("Successful backup of replaced game file")
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
             messagebox.showerror("COPY ERORR", "Couldn't copy the file.")
@@ -729,6 +785,7 @@ class SavefileManager:
         # blink the selected game file to inidicate successful replace
         self.treeview_g.selection_remove(selection_g[0])
         self._root.after(250, self.treeview_g.selection_set, selection_g[0])
+        self._root.after(250, self.button_replace.state, ["!disabled"])
 
     def Backup(self):
         """
@@ -739,21 +796,21 @@ class SavefileManager:
         ext = self.settings["CurrProfile"][3]
         selection_p = self.treeview_p.selection()
         selection_g = self.treeview_g.selection()
-
+        parent = self.treeview_p.parent(selection_p[0]) if selection_p else ""
         # Warn user if a game file is not selected
         if not selection_g:
-            logging.warning("No selection warning")
             messagebox.showwarning(
                 "No selection", "Please choose a file to backup from the right list"
             )
             return
         src = self.settings["CurrFilesG"][selection_g[0]]
-
         # If no personal file is selected use the main folder
         # otherwise use the selection
         if not selection_p:
             toSub = False
             dst = Path(self.settings["CurrProfile"][1])
+        elif parent:
+            dst = Path(self.settings["CurrFilesP"][parent])
         else:
             dst = Path(self.settings["CurrFilesP"][selection_p[0]])
 
@@ -791,7 +848,7 @@ class SavefileManager:
         backupName += ext
         # if the selection is a subfolder use it as the path
         # otherwise it's the main folder
-        if dst.is_dir():
+        if dst.is_dir() or self.treeview_p.parent(selection_p[0]):
             # if there are no files in the main folder
             # ask user if they want to add to the subfolder or the main one
             if self.fileCount <= 0:
@@ -814,7 +871,6 @@ class SavefileManager:
                 Helpers.AKBackup(src, dst, self.settings)
             else:
                 shutil.copy(src, dst)
-            logging.info("Successful backup")
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
             messagebox.showerror("COPY ERORR", "Couldn't copy the file.")
@@ -850,10 +906,10 @@ class SavefileManager:
         toSelect_g = (
             self.treeview_g.selection()[0] if self.treeview_g.selection() else ""
         )
+
+        path_p = Path(self.settings["CurrProfile"][1])
         now = datetime.now()
-        time_p = datetime.fromtimestamp(
-            Path(self.settings["CurrProfile"][1]).stat().st_mtime
-        )
+        time_p = datetime.fromtimestamp(path_p.stat().st_mtime)
         time_g = datetime.fromtimestamp(
             Path(self.settings["CurrProfile"][2]).stat().st_mtime
         )
@@ -862,6 +918,11 @@ class SavefileManager:
             self.UpdateTree(tree="P", toSelect_p=toSelect_p)
         if now - time_g > timedelta(seconds=1) and now - time_g < timedelta(seconds=10):
             self.UpdateTree(tree="G", toSelect_g=toSelect_g)
+        # check all subfolders recursively
+        for file in path_p.rglob("*"):
+            time = datetime.fromtimestamp(file.stat().st_mtime)
+            if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=10):
+                self.UpdateTree(tree="P", toSelect_p=toSelect_p)
 
         self._root.after(1000, self.FileChecker)
 
