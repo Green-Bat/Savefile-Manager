@@ -14,3 +14,4 @@ dist/
 *.txt
 .vscode
 config
+MakeZip.py

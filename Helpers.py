@@ -9,8 +9,9 @@ def GetExt(p: Path | str) -> str:
         p = Path(p)
         if not p.exists():
             raise FileNotFoundError
-    if not p.is_dir():
-        return ""
+    # if a file is given return its extension
+    if p.is_file():
+        return p.suffix
 
     exts = {}
     for file in p.iterdir():

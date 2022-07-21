@@ -15,7 +15,8 @@ class Theme:
                         "font": ("Arial", 10),
                         "anchor": "center",
                     }
-                }
+                },
+                "Treeview": {"configure": {"indent": 10}},
             },
         )
         self.themes = {
@@ -64,6 +65,7 @@ class Theme:
                         "foreground": self.themes["Dark"][3],
                         "font": self.themes["Dark"][0],
                         "fieldbackground": self.themes["Dark"][1],
+                        "indent": 10,
                     },
                     "map": {"background": [("selected", self.themes["Dark"][4])]},
                 },
@@ -117,6 +119,7 @@ class Theme:
                         "foreground": self.themes["Dark"][3],
                         "font": self.themes["Dark"][0],
                         "fieldbackground": self.themes["Dark"][1],
+                        "indent": 10,
                     },
                     "map": {"background": [("selected", self.themes["Dark"][4])]},
                 },
@@ -169,6 +172,7 @@ class Theme:
                         "foreground": self.themes["Solarized"][3],
                         "font": self.themes["Solarized"][0],
                         "fieldbackground": self.themes["Solarized"][1],
+                        "indent": 10,
                     },
                     "map": {"background": [("selected", self.themes["Solarized"][4])]},
                 },

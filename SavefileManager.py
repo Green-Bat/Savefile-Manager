@@ -49,6 +49,7 @@ import Helpers
 # -[x] Backing up to subfolder if any file from that subfolder is highlighted
 # -[x] Auto update subfolders
 # -[x] Fix issue with AKBackup
+# -[x] Fix context menu
 
 
 class SavefileManager:
@@ -262,6 +263,15 @@ class SavefileManager:
         self.frame_body.rowconfigure((0, 1), weight=1)
 
         # Treeview
+        from PIL import Image, ImageTk
+
+        # Add icons for files and folders
+        self.fileIco = ImageTk.PhotoImage(
+            Image.open("images/ico1.ico").resize((20, 20), Image.ANTIALIAS)
+        )
+        self.folderIco = ImageTk.PhotoImage(
+            Image.open("images/ico4.ico").resize((22, 22), Image.ANTIALIAS)
+        )
         self.treeview_p = ttk.Treeview(
             self.frame_body, selectmode="browse", height=17, show="tree"
         )
@@ -327,15 +337,33 @@ class SavefileManager:
 
     def TreeviewMenu(self, event: Event):
         """Context menu for treeview"""
-        item_g = self.treeview_g.identify_row(
-            event.y
-        ) and self.treeview_g.identify_column(event.x)
-        item_p = self.treeview_p.identify_row(
-            event.y
-        ) and self.treeview_p.identify_column(event.x)
-        if item_g and self.treeview_g.selection():
+        bounds_g = (
+            self.treeview_g.winfo_rootx(),
+            self.treeview_g.winfo_rootx() + self.treeview_g.winfo_width(),
+            self.treeview_g.winfo_rooty(),
+            self.treeview_g.winfo_rooty() + self.treeview_g.winfo_height(),
+        )
+        bounds_p = (
+            self.treeview_p.winfo_rootx(),
+            self.treeview_p.winfo_rootx() + self.treeview_p.winfo_width(),
+            self.treeview_p.winfo_rooty(),
+            self.treeview_p.winfo_rooty() + self.treeview_p.winfo_height(),
+        )
+        inTree_g = (
+            event.x_root > bounds_g[0]
+            and event.x_root < bounds_g[1]
+            and event.y_root > bounds_g[2]
+            and event.y_root < bounds_g[3]
+        )
+        inTree_p = (
+            event.x_root > bounds_p[0]
+            and event.x_root < bounds_p[1]
+            and event.y_root > bounds_p[2]
+            and event.y_root < bounds_p[3]
+        )
+        if inTree_g and self.treeview_g.selection():
             self.treeMenu_g.post(event.x_root, event.y_root)
-        elif item_p and self.treeview_p.selection():
+        elif inTree_p and self.treeview_p.selection():
             self.treeMenu_p.post(event.x_root, event.y_root)
 
     def TreeviewDelete(self, tree: str):
@@ -464,7 +492,9 @@ class SavefileManager:
                 # Add the rest of the files
                 for file in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}")):
                     # uses file name as tree id
-                    self.treeview_p.insert("", "end", file.name, text=file.name)
+                    self.treeview_p.insert(
+                        "", "end", file.name, text=file.name, image=self.fileIco
+                    )
                     self.settings["CurrFilesP"][file.name] = str(file)
                 if toSelect_p and toSelect_p in self.settings["CurrFilesP"]:
                     self.treeview_p.selection_set(toSelect_p)
@@ -478,7 +508,9 @@ class SavefileManager:
                 g = Path(self.settings["CurrProfile"][2])
                 for file in os_sorted(g.glob(f"*{self.settings['CurrProfile'][3]}")):
                     self.fileCount += 1
-                    self.treeview_g.insert("", "end", file.name, text=file.name)
+                    self.treeview_g.insert(
+                        "", "end", file.name, text=file.name, image=self.fileIco
+                    )
                     self.settings["CurrFilesG"][file.name] = str(file)
                 if toSelect_g and toSelect_g in self.settings["CurrFilesG"]:
                     self.treeview_g.selection_set(toSelect_g)
@@ -503,14 +535,18 @@ class SavefileManager:
                 # use folder name as tree iid
                 # for subfolder use folder name concatenated with subfolder name
                 Parentiid = self.treeview_p.insert(
-                    Parent, "end", Parent + folder.name, text=folder.name
+                    Parent,
+                    "end",
+                    Parent + folder.name,
+                    text=folder.name,
+                    image=self.folderIco,
                 )
                 self.settings["CurrFilesP"][Parentiid] = str(folder)
                 self.AddSubfolders(folder, Parent=Parentiid)
                 # fmt: off
                 for file in os_sorted(folder.glob(f"*{self.settings['CurrProfile'][3]}")):
                     Parentiid2 = self.treeview_p.insert(
-                        Parentiid, "end", Parentiid + file.name, text=file.name
+                        Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
                     )
                     self.settings["CurrFilesP"][Parentiid2] = str(file)
                 # fmt: on
@@ -548,7 +584,12 @@ class SavefileManager:
     def Choose(self, index, win: AddEditWindow):
         if index == 0:
             while True:
-                new = askstring("Profile Name", "Choose a profile name", parent=win)
+                new = askstring(
+                    "Profile Name",
+                    "Choose a profile name",
+                    parent=win,
+                    initialvalue=win.entry_profile.get(),
+                )
                 if new == "Add...":
                     logging.warning(f"Invalid name choice '{new}'")
                     messagebox.showwarning(
