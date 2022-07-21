@@ -1,0 +1,17 @@
+__pycache__/
+build/
+dist/
+
+
+*.png
+*.zip
+*.ico
+**/*.md
+!images/*.ico
+*.json
+*.exe
+*.spec
+*.txt
+.vscode
+config
+MakeZip.py
