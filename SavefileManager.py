@@ -21,35 +21,12 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
+# -[] Add support for files with no extension
+# -[] Keep subfolders open after tree auto-update
 # -[/] Tooltips
-# -[x] Replace method
-# -[x] Backup method
-# -[x] Add treeview scrollbar
-# -[x] Edit method
-# -[x] Double clicking labels opens directory
-# -[x] auto update treeviews
-# -[x] Maintain selection after update
-# -[x] create backups of files before replacing
-# Resizing
-# -[/] Remember window coordinates (& dimensions)
-# -[/] Arkham specific stuff
-# auto convert for arkham?
-# center message boxes
-# -[x] Themes
-# -[x] Add profile option in ddl
-# -[x] Add profile window
-# -[x] Autofill file extension when adding profile
-# -[x] show current choices in edit profile window
-# -[x] Indication that file was repalced
-# -[x] Add context menu for treeview
-# -[x] Purge log file every week
-# -[x] Fix renaming with context menu
-# -[x] Handle corrupt settings file
-# -[x] Fix spamming replace button
-# -[x] Backing up to subfolder if any file from that subfolder is highlighted
-# -[x] Auto update subfolders
-# -[x] Fix issue with AKBackup
-# -[x] Fix context menu
+# -[] Resizing
+# -[] Auto convert for arkham?
+# -[] Center message boxes
 
 
 class SavefileManager:
@@ -948,21 +925,25 @@ class SavefileManager:
             self.treeview_g.selection()[0] if self.treeview_g.selection() else ""
         )
 
-        path_p = Path(self.settings["CurrProfile"][1])
+        # get current time
         now = datetime.now()
+        # get last modified time of each folder
+        path_p = Path(self.settings["CurrProfile"][1])
         time_p = datetime.fromtimestamp(path_p.stat().st_mtime)
         time_g = datetime.fromtimestamp(
             Path(self.settings["CurrProfile"][2]).stat().st_mtime
         )
 
-        if now - time_p > timedelta(seconds=1) and now - time_p < timedelta(seconds=10):
+        # if last modified time is greater than one second update the treeview
+        if now - time_p > timedelta(seconds=1) and now - time_p < timedelta(seconds=3):
             self.UpdateTree(tree="P", toSelect_p=toSelect_p)
-        if now - time_g > timedelta(seconds=1) and now - time_g < timedelta(seconds=10):
+        if now - time_g > timedelta(seconds=1) and now - time_g < timedelta(seconds=3):
             self.UpdateTree(tree="G", toSelect_g=toSelect_g)
+
         # check all subfolders recursively
         for file in path_p.rglob("*"):
             time = datetime.fromtimestamp(file.stat().st_mtime)
-            if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=10):
+            if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=3):
                 self.UpdateTree(tree="P", toSelect_p=toSelect_p)
 
         self._root.after(1000, self.FileChecker)
