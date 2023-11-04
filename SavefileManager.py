@@ -25,7 +25,8 @@ import Helpers
 #   -[x] Add error for backing up folders/subfolders for game's directory
 # -[x] Add scrollbar for game treeview
 #   -[x] Fix button position
-# -[] Keep subfolders open after tree auto-update
+# -[x] Keep subfolders open after tree auto-update
+# -[x] Proper sorting for folders/subfolders
 # -[] Add support for files with no extension
 # -[/] Tooltips
 # -[] Resizing
@@ -307,7 +308,7 @@ class SavefileManager:
         # Fill tree if there is an exisiting profile
         # otherwise disable the buttons
         if self.settings["CurrProfile"]:
-            self.UpdateTree()
+            self.UpdateTree(init=True)
         else:
             self.button_backup.state(["disabled"])
             self.button_replace.state(["disabled"])
@@ -447,7 +448,11 @@ class SavefileManager:
             logging.warning("Game file name changed")
 
     def UpdateTree(
-        self, tree: str = "Both", toSelect_p: str = None, toSelect_g: str = None
+        self,
+        tree: str = "Both",
+        toSelect_p: str = None,
+        toSelect_g: str = None,
+        init: bool = False,
     ):
         """
         Initializes the treeviews and handles
@@ -466,6 +471,12 @@ class SavefileManager:
             toSelect_g: id of item to select after updating right treeview
         """
         if tree == "P" or tree == "Both":
+            # Check which folders are open in the treeview and store their iids
+            if not init:
+                isOpen = []
+                for parent in self.settings["CurrFilesP"]:
+                    if self.treeview_p.item(parent, "open"):
+                        isOpen.append(parent)
             # Delete treeview items and clear the CurrFiles dicts
             # then repopulate the treeviews
             for child in self.treeview_p.get_children():
@@ -485,7 +496,17 @@ class SavefileManager:
                 if toSelect_p and toSelect_p in self.settings["CurrFilesP"]:
                     self.treeview_p.selection_set(toSelect_p)
                     self.treeview_p.see(toSelect_p)
+                # Reopen the folders that were previously open before update
+                if not init and isOpen:
+                    for toOpen in isOpen:
+                        self.treeview_p.item(toOpen, open="true")
+                    del isOpen
         if tree == "G" or tree == "Both":
+            if not init:
+                isOpen = []
+                for parent in self.settings["CurrFilesG"]:
+                    if self.treeview_g.item(parent, "open"):
+                        isOpen.append(parent)
             for child in self.treeview_g.get_children():
                 self.treeview_g.delete(child)
             self.settings["CurrFilesG"].clear()
@@ -506,6 +527,9 @@ class SavefileManager:
                     self.treeview_g.selection_set(toSelect_g)
                     self.treeview_g.see(toSelect_g)
                     self.treeview_g.focus(toSelect_g)
+                if not init and isOpen:
+                    for toOpen in isOpen:
+                        self.treeview_g.item(toOpen, open=True)
 
     def AddSubfolders(self, path: Path, Parent="", tree=""):
         """
@@ -520,7 +544,8 @@ class SavefileManager:
                 Initially '' which is the root, then it is the id
                 of added subfolders to be able to add their subfolders
         """
-        for folder in path.iterdir():
+        folders = [Path(i) for i in os_sorted(path.iterdir())]
+        for folder in folders:
             if folder.is_dir():
                 if tree == "p":
                     # use folder name as tree iid
