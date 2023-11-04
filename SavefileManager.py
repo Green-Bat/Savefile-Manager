@@ -21,8 +21,12 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
-# -[] Add support for files with no extension
+# -[x] Add folders/subfolders for game's directory
+#   -[x] Add error for backing up folders/subfolders for game's directory
+# -[x] Add scrollbar for game treeview
+#   -[x] Fix button position
 # -[] Keep subfolders open after tree auto-update
+# -[] Add support for files with no extension
 # -[/] Tooltips
 # -[] Resizing
 # -[] Auto convert for arkham?
@@ -31,7 +35,6 @@ import Helpers
 
 class SavefileManager:
     def __init__(self, root: Tk):
-
         self.fileCount = 0
         # load settings json
         self.configPath = Path().resolve() / "config"
@@ -237,7 +240,8 @@ class SavefileManager:
         self.frame_body = ttk.Frame(self._root, width=self.geo[0])
         self.frame_body.pack(fill="x")
         self.frame_body.columnconfigure(1, weight=1)
-        self.frame_body.rowconfigure((0, 1), weight=1)
+        self.frame_body.rowconfigure(0, weight=1)
+        self.frame_body.rowconfigure(1, weight=2)
 
         # Treeview
         from PIL import Image, ImageTk
@@ -253,14 +257,19 @@ class SavefileManager:
             self.frame_body, selectmode="browse", height=17, show="tree"
         )
         self.treeview_g = ttk.Treeview(
-            self.frame_body, selectmode="browse", height=10, show="tree"
+            self.frame_body, selectmode="browse", height=6, show="tree"
         )
         # Add scrollbar
         self.yscroll = ttk.Scrollbar(
             self.frame_body, orient=VERTICAL, command=self.treeview_p.yview
         )
+        self.yscrollg = ttk.Scrollbar(
+            self.frame_body, orient=VERTICAL, command=self.treeview_g.yview
+        )
         self.treeview_p.config(yscrollcommand=self.yscroll.set)
+        self.treeview_g.config(yscrollcommand=self.yscrollg.set)
         self.yscroll.grid(row=0, rowspan=2, column=0, sticky="nse", pady=5, padx=5)
+        self.yscrollg.grid(row=0, rowspan=1, column=2, sticky="nse", pady=5, padx=5)
         # Treeview buttons
         # ------------- BUTTON SUB-FRAME -------------
         self.frame_button = ttk.Frame(self.frame_body)
@@ -275,7 +284,7 @@ class SavefileManager:
         self.button_backup.grid(row=1, column=0, sticky="ns", pady=5)
         # ------------- END OF BUTTON SUB-FRAME -------------
         self.treeview_p.grid(row=0, rowspan=2, column=0, sticky="w", padx=5, pady=5)
-        self.treeview_g.grid(row=0, rowspan=2, column=2, sticky="ne", padx=5, pady=5)
+        self.treeview_g.grid(row=0, rowspan=1, column=2, sticky="nse", padx=5, pady=5)
 
         self.treeMenu_g = Menu()
         self.treeMenu_g.add_command(
@@ -463,9 +472,9 @@ class SavefileManager:
                 self.treeview_p.delete(child)
             self.settings["CurrFilesP"].clear()
             if self.settings["CurrProfile"]:
-                # Add subfolders for the personal directory
                 p = Path(self.settings["CurrProfile"][1])
-                self.AddSubfolders(p)
+                # Add folders and their subfolders for the personal directory
+                self.AddSubfolders(p, tree="p")
                 # Add the rest of the files
                 for file in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}")):
                     # uses file name as tree id
@@ -483,6 +492,10 @@ class SavefileManager:
             if self.settings["CurrProfile"]:
                 # Add the files in the game's directory
                 g = Path(self.settings["CurrProfile"][2])
+                # Ignore folders and subfolders that have no files with the specified ext
+                if len(list(g.glob(f"**/*{self.settings['CurrProfile'][3]}"))) > 0:
+                    # Add folders and their subfolders for the game's directory
+                    self.AddSubfolders(g, tree="g")
                 for file in os_sorted(g.glob(f"*{self.settings['CurrProfile'][3]}")):
                     self.fileCount += 1
                     self.treeview_g.insert(
@@ -494,7 +507,7 @@ class SavefileManager:
                     self.treeview_g.see(toSelect_g)
                     self.treeview_g.focus(toSelect_g)
 
-    def AddSubfolders(self, path: Path, Parent=""):
+    def AddSubfolders(self, path: Path, Parent="", tree=""):
         """
         Recursively adds subfolders in the personal directory
         to the treeview and adds all the save files in them
@@ -509,24 +522,44 @@ class SavefileManager:
         """
         for folder in path.iterdir():
             if folder.is_dir():
-                # use folder name as tree iid
-                # for subfolder use folder name concatenated with subfolder name
-                Parentiid = self.treeview_p.insert(
-                    Parent,
-                    "end",
-                    Parent + folder.name,
-                    text=folder.name,
-                    image=self.folderIco,
-                )
-                self.settings["CurrFilesP"][Parentiid] = str(folder)
-                self.AddSubfolders(folder, Parent=Parentiid)
-                # fmt: off
-                for file in os_sorted(folder.glob(f"*{self.settings['CurrProfile'][3]}")):
-                    Parentiid2 = self.treeview_p.insert(
-                        Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
+                if tree == "p":
+                    # use folder name as tree iid
+                    # for subfolder use folder name concatenated with subfolder name
+                    Parentiid = self.treeview_p.insert(
+                        Parent,
+                        "end",
+                        Parent + folder.name,
+                        text=folder.name,
+                        image=self.folderIco,
                     )
-                    self.settings["CurrFilesP"][Parentiid2] = str(file)
-                # fmt: on
+                    self.settings["CurrFilesP"][Parentiid] = str(folder)
+                    self.AddSubfolders(folder, Parent=Parentiid, tree="p")
+                    # fmt: off
+                    for file in os_sorted(folder.glob(f"*{self.settings['CurrProfile'][3]}")):
+                        Parentiid2 = self.treeview_p.insert(
+                            Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
+                        )
+                        self.settings["CurrFilesP"][Parentiid2] = str(file)
+                    # fmt: on
+                elif tree == "g":
+                    # use folder name as tree iid
+                    # for subfolder use folder name concatenated with subfolder name
+                    Parentiid = self.treeview_g.insert(
+                        Parent,
+                        "end",
+                        Parent + folder.name,
+                        text=folder.name,
+                        image=self.folderIco,
+                    )
+                    self.settings["CurrFilesG"][Parentiid] = str(folder)
+                    self.AddSubfolders(folder, Parent=Parentiid, tree="g")
+                    # fmt: off
+                    for file in os_sorted(folder.glob(f"*{self.settings['CurrProfile'][3]}")):
+                        Parentiid2 = self.treeview_g.insert(
+                            Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
+                        )
+                        self.settings["CurrFilesG"][Parentiid2] = str(file)
+                    # fmt: on
 
     def updateDDL(self, event: Event):
         """
@@ -822,8 +855,13 @@ class SavefileManager:
             )
             return
         src = self.settings["CurrFilesG"][selection_g[0]]
+        if Path(src).is_dir():
+            messagebox.showwarning(
+                "Choose a file", "Please choose a file not a folder from the right list"
+            )
+            return
         # If no personal file is selected use the main folder
-        # otherwise use the selection
+        # otherwise use the selected folder/subfolder
         if not selection_p:
             toSub = False
             dst = Path(self.settings["CurrProfile"][1])
