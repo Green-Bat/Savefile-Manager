@@ -27,7 +27,7 @@ import Helpers
 #   -[x] Fix button position
 # -[x] Keep subfolders open after tree auto-update
 # -[x] Proper sorting for folders/subfolders
-# -[] Make selection within treeview when right clicking
+# -[x] Make selection within treeview when right clicking
 # -[] Add support for files with no extension
 # -[/] Tooltips
 # -[] Resizing
@@ -349,6 +349,12 @@ class SavefileManager:
             and event.y_root > bounds_p[2]
             and event.y_root < bounds_p[3]
         )
+        self.treeview_g.selection_set(
+            self.treeview_g.identify("item", event.x, event.y)
+        ) if inTree_g else ""
+        self.treeview_p.selection_set(
+            self.treeview_p.identify("item", event.x, event.y)
+        ) if inTree_p else ""
         if inTree_g and self.treeview_g.selection():
             self.treeMenu_g.post(event.x_root, event.y_root)
         elif inTree_p and self.treeview_p.selection():
