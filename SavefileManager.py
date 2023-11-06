@@ -27,6 +27,7 @@ import Helpers
 #   -[x] Fix button position
 # -[x] Keep subfolders open after tree auto-update
 # -[x] Proper sorting for folders/subfolders
+# -[] Make selection within treeview when right clicking
 # -[] Add support for files with no extension
 # -[/] Tooltips
 # -[] Resizing
@@ -544,8 +545,8 @@ class SavefileManager:
                 Initially '' which is the root, then it is the id
                 of added subfolders to be able to add their subfolders
         """
-        folders = [Path(i) for i in os_sorted(path.iterdir())]
-        for folder in folders:
+        # folders = [Path(i) for i in os_sorted(path.iterdir())]
+        for folder in map(Path, os_sorted(path.iterdir())):
             if folder.is_dir():
                 if tree == "p":
                     # use folder name as tree iid
@@ -612,7 +613,7 @@ class SavefileManager:
         else:
             self.PathLabel_p.config(text="Current personal directory: ")
             self.PathLabel_g.config(text="Current game directory: ")
-        self.UpdateTree()
+        self.UpdateTree(init=True)
         # Save to settings.json
         self.Save()
 
