@@ -1016,10 +1016,9 @@ class SavefileManager:
         now = datetime.now()
         # get last modified time of each folder
         path_p = Path(self.settings["CurrProfile"][1])
+        path_g = Path(self.settings["CurrProfile"][2])
         time_p = datetime.fromtimestamp(path_p.stat().st_mtime)
-        time_g = datetime.fromtimestamp(
-            Path(self.settings["CurrProfile"][2]).stat().st_mtime
-        )
+        time_g = datetime.fromtimestamp(path_g.stat().st_mtime)
 
         # if last modified time is greater than one second update the treeview
         if now - time_p > timedelta(seconds=1) and now - time_p < timedelta(seconds=3):
@@ -1032,6 +1031,10 @@ class SavefileManager:
             time = datetime.fromtimestamp(file.stat().st_mtime)
             if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=3):
                 self.UpdateTree(tree="P", toSelect_p=toSelect_p)
+        for file in path_g.rglob("*"):
+            time = datetime.fromtimestamp(file.stat().st_mtime)
+            if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=3):
+                self.UpdateTree(tree="G", toSelect_g=toSelect_g)
 
         self._root.after(1000, self.FileChecker)
 
