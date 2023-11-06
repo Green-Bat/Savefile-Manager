@@ -21,14 +21,15 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
+# -[/] Add support for files with no extension
 # -[x] Add folders/subfolders for game's directory
 #   -[x] Add error for backing up folders/subfolders for game's directory
+#   -[] include game subfolders in filechecker
 # -[x] Add scrollbar for game treeview
 #   -[x] Fix button position
 # -[x] Keep subfolders open after tree auto-update
 # -[x] Proper sorting for folders/subfolders
 # -[x] Make selection within treeview when right clicking
-# -[] Add support for files with no extension
 # -[/] Tooltips
 # -[] Resizing
 # -[] Auto convert for arkham?
@@ -494,7 +495,12 @@ class SavefileManager:
                 # Add folders and their subfolders for the personal directory
                 self.AddSubfolders(p, tree="p")
                 # Add the rest of the files
-                for file in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}")):
+                files = [
+                    Path(f)
+                    for f in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}"))
+                    if Path.is_file(f)
+                ]
+                for file in files:
                     # uses file name as tree id
                     self.treeview_p.insert(
                         "", "end", file.name, text=file.name, image=self.fileIco
@@ -524,7 +530,12 @@ class SavefileManager:
                 if len(list(g.glob(f"**/*{self.settings['CurrProfile'][3]}"))) > 0:
                     # Add folders and their subfolders for the game's directory
                     self.AddSubfolders(g, tree="g")
-                for file in os_sorted(g.glob(f"*{self.settings['CurrProfile'][3]}")):
+                files = [
+                    Path(f)
+                    for f in os_sorted(g.glob(f"*{self.settings['CurrProfile'][3]}"))
+                    if Path.is_file(f)
+                ]
+                for file in files:
                     self.fileCount += 1
                     self.treeview_g.insert(
                         "", "end", file.name, text=file.name, image=self.fileIco
@@ -554,6 +565,13 @@ class SavefileManager:
         # folders = [Path(i) for i in os_sorted(path.iterdir())]
         for folder in map(Path, os_sorted(path.iterdir())):
             if folder.is_dir():
+                files = [
+                    Path(f)
+                    for f in os_sorted(
+                        folder.glob(f"*{self.settings['CurrProfile'][3]}")
+                    )
+                    if Path.is_file(f)
+                ]
                 if tree == "p":
                     # use folder name as tree iid
                     # for subfolder use folder name concatenated with subfolder name
@@ -567,7 +585,7 @@ class SavefileManager:
                     self.settings["CurrFilesP"][Parentiid] = str(folder)
                     self.AddSubfolders(folder, Parent=Parentiid, tree="p")
                     # fmt: off
-                    for file in os_sorted(folder.glob(f"*{self.settings['CurrProfile'][3]}")):
+                    for file in files:
                         Parentiid2 = self.treeview_p.insert(
                             Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
                         )
@@ -586,7 +604,7 @@ class SavefileManager:
                     self.settings["CurrFilesG"][Parentiid] = str(folder)
                     self.AddSubfolders(folder, Parent=Parentiid, tree="g")
                     # fmt: off
-                    for file in os_sorted(folder.glob(f"*{self.settings['CurrProfile'][3]}")):
+                    for file in files:
                         Parentiid2 = self.treeview_g.insert(
                             Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
                         )
@@ -680,11 +698,13 @@ class SavefileManager:
         elif index == 3:
             new = askstring(
                 "File Extension",
-                "Enter the file extension of the savefiles e.g. .sgd,.save,...",
+                "Enter the file extension of the savefiles e.g. .sgd,.save,...\n For files with no extension use '*'",
                 parent=win,
             )
             if new:
-                if not new.startswith("."):
+                if new == "*":
+                    new = ""
+                elif not new.startswith(".") and len(new) >= 1:
                     new = "." + new
                 win.entry_ext.state(["!readonly"])
                 win.entry_ext.delete(0, END)
@@ -732,8 +752,7 @@ class SavefileManager:
                     "Profile name already exists please choose anothe one",
                 )
             self.settings["Profiles"][newProf] = [newProf, dir_p, dir_g, ext]
-            self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
-            self.ddlOpt = natsorted(self.ddlOpt)
+            self.ddlOpt = natsorted(self.settings["Profiles"].keys())
             self.ddlOpt.append("Add...")
             self.DDL["values"] = self.ddlOpt
             self.DDL.set(newProf)
@@ -768,8 +787,7 @@ class SavefileManager:
                     self.settings["Profiles"].pop(self.DDL.get())
                 except KeyError:
                     logging.debug("Current value of ddl doesn't exist in 'Profiles'")
-                self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
-                self.ddlOpt = natsorted(self.ddlOpt)
+                self.ddlOpt = natsorted(self.settings["Profiles"].keys())
                 self.ddlOpt.append("Add...")
                 self.DDL["values"] = self.ddlOpt
                 self.DDL.set(prof)
@@ -810,8 +828,7 @@ class SavefileManager:
                 self.button_backup.state(["disabled"])
             # Get the remaining profiles and sort them
             # then change the values in the combobox
-            self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
-            self.ddlOpt = natsorted(self.ddlOpt)
+            self.ddlOpt = natsorted(self.settings["Profiles"].keys())
             self.ddlOpt.append("Add...")
             self.DDL["values"] = self.ddlOpt
             # Set combobox to the next profile and generate

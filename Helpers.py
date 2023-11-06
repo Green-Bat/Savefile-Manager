@@ -21,7 +21,10 @@ def GetExt(p: Path | str) -> str:
             exts[file.suffix] = 1
         else:
             exts[file.suffix] += 1
-    return max(exts, key=exts.get)
+    if not exts:
+        return ""
+    else:
+        return max(exts, key=exts.get)
 
 
 def AKReplace(src: Path | str, dst: Path | str, settings):
