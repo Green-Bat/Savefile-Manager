@@ -22,8 +22,8 @@ import Helpers
 
 # TODO:
 # -[] Add support for replacing/backing up folders
-# -[] Fix issue with deleting folders
 # -[/] Add support for files with no extension
+# -[x] Fix issue with deleting folders
 # -[x] Add folders/subfolders for game's directory
 #   -[x] Add error for backing up folders/subfolders for game's directory
 #   -[x] include game subfolders in filechecker
@@ -370,16 +370,13 @@ class SavefileManager:
         if tree == "G":
             selection = self.treeview_g.selection()[0]
             parent = self.treeview_g.parent(selection)
+            index = self.treeview_g.index(selection) - 1
             removed = Path(self.settings["CurrFilesG"][selection])
             backup = self.bakDeleted / (
                 datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
             )
             try:
                 shutil.copytree(removed, backup)
-                if parent:
-                    self.treeview_g.selection_set(parent)
-                else:
-                    self.treeview_g.selection_set(self.treeview_g.get_children()[1])
             except OSError as e:
                 if e.errno in (errno.ENOTDIR, errno.EINVAL):
                     shutil.copy2(removed, backup)
@@ -389,6 +386,10 @@ class SavefileManager:
                         "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
                     )
                     return
+            if parent:
+                self.treeview_g.selection_set(parent)
+            elif len(self.treeview_g.get_children()) > 1:
+                self.treeview_g.selection_set(self.treeview_g.get_children()[index])
             try:
                 shutil.rmtree(removed)
             except OSError as e:
@@ -407,16 +408,13 @@ class SavefileManager:
         elif tree == "P":
             selection = self.treeview_p.selection()[0]
             parent = self.treeview_p.parent(selection)
+            index = self.treeview_p.index(selection) - 1
             removed = Path(self.settings["CurrFilesP"][selection])
             backup = self.bakDeleted / (
                 datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
             )
             try:
                 shutil.copytree(removed, backup)
-                if parent:
-                    self.treeview_p.selection_set(parent)
-                else:
-                    self.treeview_p.selection_set(self.treeview_p.get_children()[1])
             except OSError as e:
                 if e.errno in (errno.ENOTDIR, errno.EINVAL):
                     shutil.copy2(removed, backup)
@@ -426,6 +424,10 @@ class SavefileManager:
                         "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
                     )
                     return
+            if parent:
+                self.treeview_p.selection_set(parent)
+            elif len(self.treeview_p.get_children()) > 1:
+                self.treeview_p.selection_set(self.treeview_p.get_children()[index])
             try:
                 shutil.rmtree(removed)
             except OSError as e:
