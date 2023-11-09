@@ -21,10 +21,12 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
+# -[] Add support for replacing/backing up folders
+# -[] Fix issue with deleting folders
 # -[/] Add support for files with no extension
 # -[x] Add folders/subfolders for game's directory
 #   -[x] Add error for backing up folders/subfolders for game's directory
-#   -[] include game subfolders in filechecker
+#   -[x] include game subfolders in filechecker
 # -[x] Add scrollbar for game treeview
 #   -[x] Fix button position
 # -[x] Keep subfolders open after tree auto-update
@@ -141,7 +143,7 @@ class SavefileManager:
         self.frame_header.pack(expand=True, fill=BOTH)
         self.frame_header.grid_propagate(False)
         self.frame_header.grid_columnconfigure((0, 1), weight=1)
-        self.frame_header.grid_rowconfigure((0, 3), weight=1)
+        self.frame_header.grid_rowconfigure((0, 2), weight=1, uniform="row")
 
         # MENUBAR
         root.option_add("*tearOff", False)
@@ -192,8 +194,7 @@ class SavefileManager:
             font=("Arial", 12, "bold"),
         ).grid(row=0, column=0, sticky="ew")
 
-        self.ddlOpt = [x for x in self.settings["Profiles"].keys()]
-        self.ddlOpt = natsorted(self.ddlOpt)
+        self.ddlOpt = natsorted(self.settings["Profiles"].keys())
         self.ddlOpt.append("Add...")
         self.DDL = ttk.Combobox(
             self.frame_header,
@@ -224,7 +225,7 @@ class SavefileManager:
         self.PathLabel_g = ttk.Label(
             self.frame_header,
             text="Current game directory: " + label_g,
-            wraplength=int(self.geo[0]),
+            wraplength=self.geo[0],
         )
         # double clicking the paths will open the folder in file explorer
         self.PathLabel_p.bind(
@@ -235,8 +236,8 @@ class SavefileManager:
             "<Double-Button-1>",
             lambda e: startfile(self.settings["CurrProfile"][2]),
         )
-        self.PathLabel_p.grid(row=2, column=0, columnspan=2, sticky="w", pady=5)
-        self.PathLabel_g.grid(row=3, column=0, columnspan=2, sticky="w", pady=5)
+        self.PathLabel_p.grid(row=1, column=0, columnspan=2, sticky="w", pady=5)
+        self.PathLabel_g.grid(row=2, column=0, columnspan=2, sticky="w", pady=5)
         # -------------------- END OF HEADER FRAME --------------------
 
         # -------------------- BODY FRAME --------------------
@@ -396,6 +397,7 @@ class SavefileManager:
             self.settings["CurrFilesP"].pop(selection)
             self.treeview_p.delete(selection)
             removed.unlink()
+        self.UpdateTree(tree=tree)
 
     def TreeviewRename(self, tree: str, treeview: ttk.Treeview):
         if tree == "G":
@@ -494,6 +496,7 @@ class SavefileManager:
                 p = Path(self.settings["CurrProfile"][1])
                 # Add folders and their subfolders for the personal directory
                 self.AddSubfolders(p, tree="p")
+                self.fileCount = 0
                 # Add the rest of the files
                 files = [
                     Path(f)
@@ -501,6 +504,7 @@ class SavefileManager:
                     if Path.is_file(f)
                 ]
                 for file in files:
+                    self.fileCount += 1
                     # uses file name as tree id
                     self.treeview_p.insert(
                         "", "end", file.name, text=file.name, image=self.fileIco
@@ -536,7 +540,6 @@ class SavefileManager:
                     if Path.is_file(f)
                 ]
                 for file in files:
-                    self.fileCount += 1
                     self.treeview_g.insert(
                         "", "end", file.name, text=file.name, image=self.fileIco
                     )
@@ -548,6 +551,7 @@ class SavefileManager:
                 if not init and isOpen:
                     for toOpen in isOpen:
                         self.treeview_g.item(toOpen, open=True)
+        self.Save()
 
     def AddSubfolders(self, path: Path, Parent="", tree=""):
         """
@@ -638,8 +642,6 @@ class SavefileManager:
             self.PathLabel_p.config(text="Current personal directory: ")
             self.PathLabel_g.config(text="Current game directory: ")
         self.UpdateTree(init=True)
-        # Save to settings.json
-        self.Save()
 
     def Choose(self, index, win: AddEditWindow):
         if index == 0:
@@ -733,7 +735,7 @@ class SavefileManager:
             dir_p = addWin.entry_p.get()
             dir_g = addWin.entry_g.get()
             ext = addWin.entry_ext.get()
-            if not (dir_p and dir_g and ext):
+            if not (dir_p and dir_g):
                 logging.warning("Incomplete profile warning")
                 messagebox.showwarning(
                     "Incomplete Profile",
@@ -833,7 +835,7 @@ class SavefileManager:
             self.DDL["values"] = self.ddlOpt
             # Set combobox to the next profile and generate
             # an event to update the current profile and treeviews
-            self.DDL.set(list(self.settings["Profiles"])[0])
+            self.DDL.set(self.ddlOpt[0])
         except IndexError:
             # If all profiles dict is empty
             # set ddl to empty string
@@ -880,7 +882,7 @@ class SavefileManager:
                 Helpers.AKReplace(src, dst, self.settings)
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
-            messagebox.showerror("COPY ERORR", "Couldn't copy the file.")
+            messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
 
         # blink the selected game file to inidicate successful replace
         self.treeview_g.selection_remove(selection_g[0])
@@ -893,31 +895,41 @@ class SavefileManager:
         and puts it in the personal folder
         """
         overwrite, toSub = False, True
-        ext = self.settings["CurrProfile"][3]
         selection_p = self.treeview_p.selection()
         selection_g = self.treeview_g.selection()
         parent = self.treeview_p.parent(selection_p[0]) if selection_p else ""
+        toSelect_p = ""
         # Warn user if a game file is not selected
         if not selection_g:
             messagebox.showwarning(
                 "No selection", "Please choose a file to backup from the right list"
             )
             return
-        src = self.settings["CurrFilesG"][selection_g[0]]
-        if Path(src).is_dir():
+        src = Path(self.settings["CurrFilesG"][selection_g[0]])
+        if src.is_dir():
             messagebox.showwarning(
                 "Choose a file", "Please choose a file not a folder from the right list"
             )
             return
+        ext = src.suffix
         # If no personal file is selected use the main folder
         # otherwise use the selected folder/subfolder
         if not selection_p:
             toSub = False
             dst = Path(self.settings["CurrProfile"][1])
         elif parent:
-            dst = Path(self.settings["CurrFilesP"][parent])
+            dst = Path(self.settings["CurrFilesP"][selection_p[0]])
+            if dst.is_file():
+                # if selection is file within a subfolder set dst to that subfolder
+                # and selection to iid of that folder in the tree
+                toSelect_p = selection_p[0][: -len(dst.name)]
+                dst = dst.parent
+            else:
+                toSelect_p = selection_p[0]
         else:
             dst = Path(self.settings["CurrFilesP"][selection_p[0]])
+            if dst.is_file():
+                dst = dst.parent
 
         while True:
             backupName = askstring(
@@ -933,11 +945,13 @@ class SavefileManager:
             else:
                 lowerCaseDict = set(k.lower() for k in self.settings["CurrFilesP"])
                 exists = (
-                    (backupName + ext).lower() in lowerCaseDict
-                    and (
-                        dst == Path(self.settings["CurrProfile"][1]) or not dst.is_dir()
+                    (
+                        (backupName + ext).lower() in lowerCaseDict
+                        and dst == Path(self.settings["CurrProfile"][1])
                     )
-                ) or (dst.name + backupName + ext).lower() in lowerCaseDict
+                    or (dst.name + backupName + ext).lower() in lowerCaseDict
+                    or (toSelect_p + backupName + ext).lower() in lowerCaseDict
+                )
                 if exists:
                     overwrite = messagebox.askyesno(
                         "Already exists",
@@ -953,16 +967,22 @@ class SavefileManager:
         backupName += ext
         # if the selection is a subfolder use it as the path
         # otherwise it's the main folder
-        if dst.is_dir() or self.treeview_p.parent(selection_p[0]):
+        if (
+            dst.is_dir() and not dst.samefile(self.settings["CurrProfile"][1])
+        ) or parent:
             # if there are no files in the main folder
             # ask user if they want to add to the subfolder or the main one
             if self.fileCount <= 0:
                 toSub = messagebox.askyesno(
                     "Backup",
                     "Add to currently selected subfolder (yes) or main folder (no)?",
+                    parent=self._root,
                 )
             if toSub:
-                toSelect_p = dst.name + backupName
+                if not toSelect_p:
+                    toSelect_p = dst.name + backupName
+                else:
+                    toSelect_p += backupName
                 dst = dst / backupName
             else:
                 toSelect_p = backupName
@@ -972,15 +992,14 @@ class SavefileManager:
             dst = Path(self.settings["CurrProfile"][1]) / backupName
 
         try:
-            if "BAK" in src:
+            if "BAK" in src.name:
                 Helpers.AKBackup(src, dst, self.settings)
             else:
                 shutil.copy(src, dst)
         except OSError as e:
             logging.error(f"Couldn't copy {e.strerror}")
-            messagebox.showerror("COPY ERORR", "Couldn't copy the file.")
+            messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
         self.UpdateTree(tree="P", toSelect_p=toSelect_p)
-        self.Save()
 
     def Save(self):
         """Save all the settings to the settings file"""
