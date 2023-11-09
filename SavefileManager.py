@@ -8,7 +8,7 @@ from tkinter.simpledialog import askstring
 # general modules
 import json
 from datetime import datetime, timedelta
-import shutil
+import shutil, errno
 from os import startfile
 from pathlib import Path
 import logging
@@ -315,7 +315,7 @@ class SavefileManager:
         else:
             self.button_backup.state(["disabled"])
             self.button_replace.state(["disabled"])
-        root.after(1000, self.FileChecker)
+        self.checker_id = root.after(1000, self.FileChecker)
         # Set theme
         if self.settings["Theme"]:
             self.currTheme.set(self.settings["Theme"])
@@ -369,35 +369,78 @@ class SavefileManager:
             return
         if tree == "G":
             selection = self.treeview_g.selection()[0]
+            parent = self.treeview_g.parent(selection)
             removed = Path(self.settings["CurrFilesG"][selection])
             backup = self.bakDeleted / (
                 datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
             )
             try:
-                shutil.copy2(removed, backup)
+                shutil.copytree(removed, backup)
+                if parent:
+                    self.treeview_g.selection_set(parent)
+                else:
+                    self.treeview_g.selection_set(self.treeview_g.get_children()[1])
             except OSError as e:
-                logging.error(f"Couldn't copy file {e.strerror}")
-                messagebox.showerror("FAILED DELETE ERROR", "Couldn't delete file")
-                return
+                if e.errno in (errno.ENOTDIR, errno.EINVAL):
+                    shutil.copy2(removed, backup)
+                else:
+                    logging.error(f"Couldn't copy file {e.strerror}")
+                    messagebox.showerror(
+                        "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
+                    )
+                    return
+            try:
+                shutil.rmtree(removed)
+            except OSError as e:
+                if e.errno in (errno.ENOTDIR, errno.EINVAL):
+                    removed.unlink()
+                else:
+                    logging.error(f"Couldn't copy file {e.strerror}")
+                    messagebox.showerror(
+                        "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
+                    )
+                    return
+            for child in self.treeview_g.get_children(selection):
+                self.settings["CurrFilesG"].pop(child)
             self.settings["CurrFilesG"].pop(selection)
             self.treeview_g.delete(selection)
-            removed.unlink()
         elif tree == "P":
             selection = self.treeview_p.selection()[0]
+            parent = self.treeview_p.parent(selection)
             removed = Path(self.settings["CurrFilesP"][selection])
             backup = self.bakDeleted / (
                 datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
             )
             try:
-                shutil.copy2(removed, backup)
+                shutil.copytree(removed, backup)
+                if parent:
+                    self.treeview_p.selection_set(parent)
+                else:
+                    self.treeview_p.selection_set(self.treeview_p.get_children()[1])
             except OSError as e:
-                logging.error(f"Couldn't copy file {e.strerror}")
-                messagebox.showerror("FAILED DELET ERROR", "Couldn't delete file")
-                return
+                if e.errno in (errno.ENOTDIR, errno.EINVAL):
+                    shutil.copy2(removed, backup)
+                else:
+                    logging.error(f"Couldn't copy file {e.strerror}")
+                    messagebox.showerror(
+                        "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
+                    )
+                    return
+            try:
+                shutil.rmtree(removed)
+            except OSError as e:
+                if e.errno in (errno.ENOTDIR, errno.EINVAL):
+                    removed.unlink()
+                else:
+                    logging.error(f"Couldn't copy file {e.strerror}")
+                    messagebox.showerror(
+                        "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
+                    )
+                    return
+            for child in self.treeview_p.get_children(selection):
+                self.settings["CurrFilesP"].pop(child)
             self.settings["CurrFilesP"].pop(selection)
             self.treeview_p.delete(selection)
-            removed.unlink()
-        self.UpdateTree(tree=tree)
 
     def TreeviewRename(self, tree: str, treeview: ttk.Treeview):
         if tree == "G":
@@ -1022,7 +1065,7 @@ class SavefileManager:
         then updates the treeviews if the folders were modified recently
         """
         if not self.settings["CurrProfile"]:
-            self._root.after(1000, self.FileChecker)
+            self.checker_id = self._root.after(1000, self.FileChecker)
             return
         toSelect_p = (
             self.treeview_p.selection()[0] if self.treeview_p.selection() else ""
@@ -1055,7 +1098,7 @@ class SavefileManager:
             if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=3):
                 self.UpdateTree(tree="G", toSelect_g=toSelect_g)
 
-        self._root.after(1000, self.FileChecker)
+        self.checker_id = self._root.after(1000, self.FileChecker)
 
     def on_close(self):
         self.Save()
