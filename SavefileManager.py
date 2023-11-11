@@ -21,8 +21,8 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
-# -[] Add support for replacing/backing up folders
-# -[/] Add support for files with no extension
+# -[x] Add support for replacing/backing up folders
+# -[x] Add support for files with no extension
 # -[x] Fix issue with deleting folders
 # -[x] Add folders/subfolders for game's directory
 #   -[x] Add error for backing up folders/subfolders for game's directory
@@ -371,6 +371,7 @@ class SavefileManager:
             selection = self.treeview_g.selection()[0]
             parent = self.treeview_g.parent(selection)
             index = self.treeview_g.index(selection) - 1
+            index = 1 if index < 0 else index
             removed = Path(self.settings["CurrFilesG"][selection])
             backup = self.bakDeleted / (
                 datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
@@ -409,6 +410,7 @@ class SavefileManager:
             selection = self.treeview_p.selection()[0]
             parent = self.treeview_p.parent(selection)
             index = self.treeview_p.index(selection) - 1
+            index = 1 if index < 0 else index
             removed = Path(self.settings["CurrFilesP"][selection])
             backup = self.bakDeleted / (
                 datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
@@ -464,7 +466,7 @@ class SavefileManager:
         if not newname:
             return
 
-        # add file extention to newname if it isn't a folder
+        # add file extension to newname if it isn't a folder
         if not newname.endswith(f"{self.settings['CurrProfile'][3]}"):
             if (
                 tree == "P"
@@ -796,7 +798,7 @@ class SavefileManager:
                 logging.warning("Profile name already exists")
                 messagebox.showwarning(
                     "Profile Name Exists",
-                    "Profile name already exists please choose anothe one",
+                    "Profile name already exists please choose another one",
                 )
             self.settings["Profiles"][newProf] = [newProf, dir_p, dir_g, ext]
             self.ddlOpt = natsorted(self.settings["Profiles"].keys())
@@ -905,34 +907,51 @@ class SavefileManager:
         if not (selection_p and selection_g):
             messagebox.showwarning(
                 "No selection",
-                "Please choose a file to copy from the left list\nand a file to overwrite from the right list",
+                "Please choose a file/folder to copy from the left list\nand a file/folder to overwrite from the right list",
             )
             return
-        src = self.settings["CurrFilesP"][selection_p[0]]
-        if Path(src).is_dir():
+        src = Path(self.settings["CurrFilesP"][selection_p[0]])
+        dst = Path(self.settings["CurrFilesG"][selection_g[0]])
+        if (src.is_file() and dst.is_dir()) or (src.is_dir() and dst.is_file()):
             messagebox.showwarning(
-                "Choose a file", "Please choose a file not a folder from the left list"
+                "Folder-to-File Warning",
+                "Please make sure your copying folder-to-folder/file-to-file.",
             )
+            logging.warning("Folder-to-File Error")
             return
         # Disable button to prevent it from being spammed
         self.button_replace.state(["disabled"])
-        dst = self.settings["CurrFilesG"][selection_g[0]]
         try:
-            shutil.copy2(src, dst)
-            backup = self.bak / (
-                datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + Path(dst).name
-            )
-            shutil.copy2(dst, backup)
-            if "BAK" in dst:
+            if "BAK" in dst.name:
                 Helpers.AKReplace(src, dst, self.settings)
+            else:
+                shutil.copytree(src, dst, dirs_exist_ok=True)
         except OSError as e:
-            logging.error(f"Couldn't copy {e.strerror}")
-            messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
+            if e.errno in (errno.ENOTDIR, errno.EINVAL):
+                shutil.copy2(src, dst)
+            else:
+                logging.error(f"Couldn't copy {e.strerror}")
+                messagebox.showerror("COPY ERORR", "Couldn't copy. Check log file.")
+                self._root.after(250, self.button_replace.state, ["!disabled"])
+                return
+        backup = self.bak / (
+            datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + dst.name
+        )
+        try:
+            shutil.copytree(dst, backup)
+        except OSError as e:
+            if e.errno in (errno.ENOTDIR, errno.EINVAL):
+                shutil.copy2(dst, backup)
+            else:
+                logging.error(f"Couldn't copy {e.strerror}")
+                messagebox.showerror("COPY ERORR", "Couldn't copy. Check log file.")
+                return
+        finally:
+            self._root.after(250, self.button_replace.state, ["!disabled"])
 
         # blink the selected game file to inidicate successful replace
         self.treeview_g.selection_remove(selection_g[0])
         self._root.after(250, self.treeview_g.selection_set, selection_g[0])
-        self._root.after(250, self.button_replace.state, ["!disabled"])
 
     def Backup(self):
         """
@@ -947,16 +966,15 @@ class SavefileManager:
         # Warn user if a game file is not selected
         if not selection_g:
             messagebox.showwarning(
-                "No selection", "Please choose a file to backup from the right list"
+                "No selection",
+                "Please choose a file/folder to backup from the right list",
             )
             return
+        parentg = self.treeview_g.parent(selection_g[0])
         src = Path(self.settings["CurrFilesG"][selection_g[0]])
-        if src.is_dir():
-            messagebox.showwarning(
-                "Choose a file", "Please choose a file not a folder from the right list"
-            )
-            return
-        ext = src.suffix
+        if src.is_file() and parentg:
+            src = src.parent
+        ext = self.settings["CurrProfile"][3]
         # If no personal file is selected use the main folder
         # otherwise use the selected folder/subfolder
         if not selection_p:
@@ -975,10 +993,14 @@ class SavefileManager:
             dst = Path(self.settings["CurrFilesP"][selection_p[0]])
             if dst.is_file():
                 dst = dst.parent
+            else:
+                toSelect_p = selection_p[0]
 
         while True:
             backupName = askstring(
-                "Backup file", "Choose a name for the backup file", parent=self._root
+                "Backup file",
+                "Choose a name for the backup file/folder",
+                parent=self._root,
             )
             if backupName is None:
                 return
@@ -990,13 +1012,9 @@ class SavefileManager:
             else:
                 lowerCaseDict = set(k.lower() for k in self.settings["CurrFilesP"])
                 exists = (
-                    (
-                        (backupName + ext).lower() in lowerCaseDict
-                        and dst == Path(self.settings["CurrProfile"][1])
-                    )
-                    or (dst.name + backupName + ext).lower() in lowerCaseDict
-                    or (toSelect_p + backupName + ext).lower() in lowerCaseDict
-                )
+                    (backupName + ext).lower() in lowerCaseDict
+                    and dst == Path(self.settings["CurrProfile"][1])
+                ) or (toSelect_p + backupName + ext).lower() in lowerCaseDict
                 if exists:
                     overwrite = messagebox.askyesno(
                         "Already exists",
@@ -1012,9 +1030,7 @@ class SavefileManager:
         backupName += ext
         # if the selection is a subfolder use it as the path
         # otherwise it's the main folder
-        if (
-            dst.is_dir() and not dst.samefile(self.settings["CurrProfile"][1])
-        ) or parent:
+        if not dst.samefile(self.settings["CurrProfile"][1]) or parent:
             # if there are no files in the main folder
             # ask user if they want to add to the subfolder or the main one
             if self.fileCount <= 0:
@@ -1040,10 +1056,15 @@ class SavefileManager:
             if "BAK" in src.name:
                 Helpers.AKBackup(src, dst, self.settings)
             else:
-                shutil.copy(src, dst)
+                shutil.copytree(src, dst, dirs_exist_ok=overwrite)
         except OSError as e:
-            logging.error(f"Couldn't copy {e.strerror}")
-            messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
+            if e.errno in (errno.ENOTDIR, errno.EINVAL):
+                shutil.copy(src, dst)
+            else:
+                logging.error(f"Couldn't copy {e.strerror}")
+                messagebox.showerror(
+                    "COPY ERORR", "Couldn't copy the file. Check log file"
+                )
         self.UpdateTree(tree="P", toSelect_p=toSelect_p)
 
     def Save(self):
