@@ -252,10 +252,10 @@ class SavefileManager:
 
         # Add icons for files and folders
         self.fileIco = ImageTk.PhotoImage(
-            Image.open("images/ico1.ico").resize((20, 20), Image.ANTIALIAS)
+            Image.open("images/ico1.ico").resize((20, 20), Image.LANCZOS)
         )
         self.folderIco = ImageTk.PhotoImage(
-            Image.open("images/ico4.ico").resize((22, 22), Image.ANTIALIAS)
+            Image.open("images/ico4.ico").resize((22, 22), Image.LANCZOS)
         )
         self.treeview_p = ttk.Treeview(
             self.frame_body, selectmode="browse", height=17, show="tree"
