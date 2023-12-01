@@ -21,17 +21,6 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
-# -[x] Add support for replacing/backing up folders
-# -[x] Add support for files with no extension
-# -[x] Fix issue with deleting folders
-# -[x] Add folders/subfolders for game's directory
-#   -[x] Add error for backing up folders/subfolders for game's directory
-#   -[x] include game subfolders in filechecker
-# -[x] Add scrollbar for game treeview
-#   -[x] Fix button position
-# -[x] Keep subfolders open after tree auto-update
-# -[x] Proper sorting for folders/subfolders
-# -[x] Make selection within treeview when right clicking
 # -[/] Tooltips
 # -[] Resizing
 # -[] Auto convert for arkham?
@@ -111,6 +100,7 @@ class SavefileManager:
             except OSError as e:
                 logging.error(f"Couldn't generate settings file {e.strerror}")
                 messagebox.showerror("ERROR", "Couldn't make settings file.")
+                self._root.destroy()
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # -------------------- GUI INIT  -------------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -516,24 +506,25 @@ class SavefileManager:
         any updates when switching between profiles
 
         Args:
-            init: used when initializing
-                prevents deleting of treeview items
-                since they wouldn't have any items
-
             tree: Determines which tree to update.
                 Can be ['G', 'P', 'Both']
 
             toSelect_p: id of item to select after updating left treeview
 
             toSelect_g: id of item to select after updating right treeview
+
+            init: Used when checking if subfolders are open.
+                There would be no subfolders to check if
+                there is nothing in the treeviews i.e., during initilization
         """
         if tree == "P" or tree == "Both":
             # Check which folders are open in the treeview and store their iids
             if not init:
-                isOpen = []
-                for parent in self.settings["CurrFilesP"]:
-                    if self.treeview_p.item(parent, "open"):
-                        isOpen.append(parent)
+                isOpen = [
+                    p
+                    for p in self.settings["CurrFilesP"]
+                    if self.treeview_p.item(p, "open")
+                ]
             # Delete treeview items and clear the CurrFiles dicts
             # then repopulate the treeviews
             for child in self.treeview_p.get_children():
@@ -548,7 +539,7 @@ class SavefileManager:
                 files = [
                     Path(f)
                     for f in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}"))
-                    if Path.is_file(f)
+                    if f.is_file()
                 ]
                 for file in files:
                     self.fileCount += 1
@@ -567,10 +558,11 @@ class SavefileManager:
                     del isOpen
         if tree == "G" or tree == "Both":
             if not init:
-                isOpen = []
-                for parent in self.settings["CurrFilesG"]:
-                    if self.treeview_g.item(parent, "open"):
-                        isOpen.append(parent)
+                isOpen = [
+                    p
+                    for p in self.settings["CurrFilesG"]
+                    if self.treeview_g.item(p, "open")
+                ]
             for child in self.treeview_g.get_children():
                 self.treeview_g.delete(child)
             self.settings["CurrFilesG"].clear()
@@ -584,7 +576,7 @@ class SavefileManager:
                 files = [
                     Path(f)
                     for f in os_sorted(g.glob(f"*{self.settings['CurrProfile'][3]}"))
-                    if Path.is_file(f)
+                    if f.is_file()
                 ]
                 for file in files:
                     self.treeview_g.insert(
@@ -602,8 +594,8 @@ class SavefileManager:
 
     def AddSubfolders(self, path: Path, Parent="", tree=""):
         """
-        Recursively adds subfolders in the personal directory
-        to the treeview and adds all the save files in them
+        Recursively adds subfolders to the treeview
+        and adds all the save files in them
 
         Args:
             path: Path object, originally the personal directory
@@ -613,54 +605,51 @@ class SavefileManager:
                 Initially '' which is the root, then it is the id
                 of added subfolders to be able to add their subfolders
         """
-        # folders = [Path(i) for i in os_sorted(path.iterdir())]
-        for folder in map(Path, os_sorted(path.iterdir())):
-            if folder.is_dir():
-                files = [
-                    Path(f)
-                    for f in os_sorted(
-                        folder.glob(f"*{self.settings['CurrProfile'][3]}")
+        folders = [Path(i) for i in os_sorted(path.iterdir()) if i.is_dir()]
+        for folder in folders:
+            files = [
+                Path(f)
+                for f in os_sorted(folder.glob(f"*{self.settings['CurrProfile'][3]}"))
+                if f.is_file()
+            ]
+            if tree == "p":
+                # use folder name as tree iid
+                # for subfolder use folder name concatenated with subfolder name
+                Parentiid = self.treeview_p.insert(
+                    Parent,
+                    "end",
+                    Parent + folder.name,
+                    text=folder.name,
+                    image=self.folderIco,
+                )
+                self.settings["CurrFilesP"][Parentiid] = str(folder)
+                self.AddSubfolders(folder, Parent=Parentiid, tree="p")
+                # fmt: off
+                for file in files:
+                    Parentiid2 = self.treeview_p.insert(
+                        Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
                     )
-                    if Path.is_file(f)
-                ]
-                if tree == "p":
-                    # use folder name as tree iid
-                    # for subfolder use folder name concatenated with subfolder name
-                    Parentiid = self.treeview_p.insert(
-                        Parent,
-                        "end",
-                        Parent + folder.name,
-                        text=folder.name,
-                        image=self.folderIco,
+                    self.settings["CurrFilesP"][Parentiid2] = str(file)
+                # fmt: on
+            elif tree == "g":
+                # use folder name as tree iid
+                # for subfolder use folder name concatenated with subfolder name
+                Parentiid = self.treeview_g.insert(
+                    Parent,
+                    "end",
+                    Parent + folder.name,
+                    text=folder.name,
+                    image=self.folderIco,
+                )
+                self.settings["CurrFilesG"][Parentiid] = str(folder)
+                self.AddSubfolders(folder, Parent=Parentiid, tree="g")
+                # fmt: off
+                for file in files:
+                    Parentiid2 = self.treeview_g.insert(
+                        Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
                     )
-                    self.settings["CurrFilesP"][Parentiid] = str(folder)
-                    self.AddSubfolders(folder, Parent=Parentiid, tree="p")
-                    # fmt: off
-                    for file in files:
-                        Parentiid2 = self.treeview_p.insert(
-                            Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
-                        )
-                        self.settings["CurrFilesP"][Parentiid2] = str(file)
-                    # fmt: on
-                elif tree == "g":
-                    # use folder name as tree iid
-                    # for subfolder use folder name concatenated with subfolder name
-                    Parentiid = self.treeview_g.insert(
-                        Parent,
-                        "end",
-                        Parent + folder.name,
-                        text=folder.name,
-                        image=self.folderIco,
-                    )
-                    self.settings["CurrFilesG"][Parentiid] = str(folder)
-                    self.AddSubfolders(folder, Parent=Parentiid, tree="g")
-                    # fmt: off
-                    for file in files:
-                        Parentiid2 = self.treeview_g.insert(
-                            Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
-                        )
-                        self.settings["CurrFilesG"][Parentiid2] = str(file)
-                    # fmt: on
+                    self.settings["CurrFilesG"][Parentiid2] = str(file)
+                # fmt: on
 
     def updateDDL(self, event: Event):
         """
@@ -878,22 +867,21 @@ class SavefileManager:
             # Get the remaining profiles and sort them
             # then change the values in the combobox
             self.ddlOpt = natsorted(self.settings["Profiles"].keys())
+            if not self.ddlOpt:
+                self.DDL.set("")
+            else:
+                # Set combobox to the next profile
+                self.DDL.set(self.ddlOpt[0])
             self.ddlOpt.append("Add...")
             self.DDL["values"] = self.ddlOpt
-            # Set combobox to the next profile and generate
-            # an event to update the current profile and treeviews
-            self.DDL.set(self.ddlOpt[0])
-        except IndexError:
-            # If all profiles dict is empty
-            # set ddl to empty string
-            self.DDL.set("")
         except KeyError:
             messagebox.showwarning(
                 "No profiles", "No profiles to remove. Add one first"
             )
-            return
-        self.settings["ProfileCount"] = len(self.settings["Profiles"])
-        self.DDL.event_generate("<<ComboboxSelected>>")
+        else:
+            self.settings["ProfileCount"] = len(self.settings["Profiles"])
+            # generate an event to update the current profile and treeviews
+            self.DDL.event_generate("<<ComboboxSelected>>")
 
     def Replace(self):
         """
@@ -1128,7 +1116,6 @@ class SavefileManager:
         self._root.destroy()
 
 
-# for testing
 def main():
     root = Tk()
     savefileManager = SavefileManager(root)
