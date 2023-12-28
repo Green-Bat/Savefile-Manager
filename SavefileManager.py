@@ -1,12 +1,11 @@
 # Tkinter modules
 from tkinter import *
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 from tkinter.simpledialog import askstring
-
-# from ttkthemes import ThemedStyle
 
 # general modules
 import json
+from threading import Thread
 from datetime import datetime, timedelta
 import shutil, errno
 from os import startfile
@@ -21,7 +20,7 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
-# -[/] Tooltips
+# -[X] Tooltips
 # -[] Resizing
 # -[] Auto convert for arkham?
 # -[] Center message boxes
@@ -82,13 +81,21 @@ class SavefileManager:
                 format=fmt,
             )
             if weekAgo:
-                self.settings["LogTime"] = str(datetime.now())
-                for file in self.bak.iterdir():
-                    if file.is_file():
-                        file.unlink()
-                for file in self.bakDeleted.iterdir():
-                    if file.is_file():
-                        file.unlink()
+
+                def CleanBackups():
+                    self.settings["LogTime"] = str(datetime.now())
+                    for file in self.bak.iterdir():
+                        if file.is_file():
+                            file.unlink()
+                        elif file.is_dir() and not file.samefile(self.bakDeleted):
+                            shutil.rmtree(file)
+                    for file in self.bakDeleted.iterdir():
+                        if file.is_file():
+                            file.unlink()
+                        elif file.is_dir():
+                            shutil.rmtree(file)
+
+                Thread(target=CleanBackups).start()
             logging.info("Settings file successfully loaded")
         except (FileNotFoundError, json.JSONDecodeError):
             logging.basicConfig(filename=self.logpath, level=logging.DEBUG, format=fmt)
@@ -296,12 +303,25 @@ class SavefileManager:
         )
         self.treeview_g.bind("<Button-3>", self.TreeviewMenu)
         self.treeview_p.bind("<Button-3>", self.TreeviewMenu)
-        TVToolTip(root, self.treeview_p, self.treeview_g)
+        TVToolTip(
+            self.treeview_p,
+            extra_width=self.fileIco.width()
+            + self.yscroll.winfo_reqwidth()
+            + self.yscroll.grid_info()["padx"],
+        ).bind()
+        TVToolTip(
+            self.treeview_g,
+            extra_width=self.fileIco.width()
+            + self.yscrollg.winfo_reqwidth()
+            + self.yscrollg.grid_info()["padx"],
+        ).bind()
         # -------------------- END OF BODY FRAME --------------------
         # Fill tree if there is an exisiting profile
         # otherwise disable the buttons
         if self.settings["CurrProfile"]:
-            self.UpdateTree(init=True)
+            # self.UpdateTree(init=True)
+            Thread(target=self.UpdateTree, kwargs={"init": True, "tree": "P"}).start()
+            Thread(target=self.UpdateTree, kwargs={"init": True, "tree": "G"}).start()
         else:
             self.button_backup.state(["disabled"])
             self.button_replace.state(["disabled"])
@@ -520,11 +540,11 @@ class SavefileManager:
         if tree == "P" or tree == "Both":
             # Check which folders are open in the treeview and store their iids
             if not init:
-                isOpen = [
+                isOpen = {
                     p
                     for p in self.settings["CurrFilesP"]
                     if self.treeview_p.item(p, "open")
-                ]
+                }
             # Delete treeview items and clear the CurrFiles dicts
             # then repopulate the treeviews
             for child in self.treeview_p.get_children():
@@ -558,11 +578,11 @@ class SavefileManager:
                     del isOpen
         if tree == "G" or tree == "Both":
             if not init:
-                isOpen = [
+                isOpen = {
                     p
                     for p in self.settings["CurrFilesG"]
                     if self.treeview_g.item(p, "open")
-                ]
+                }
             for child in self.treeview_g.get_children():
                 self.treeview_g.delete(child)
             self.settings["CurrFilesG"].clear()
@@ -598,12 +618,14 @@ class SavefileManager:
         and adds all the save files in them
 
         Args:
-            path: Path object, originally the personal directory
+            path: Path object, originally the personal/game directory
                 then called recursively with its subfolders
 
             Parent: The id of the parent in the treeview.
                 Initially '' which is the root, then it is the id
                 of added subfolders to be able to add their subfolders
+
+            tree: which tree to operate on. "P" or "G"
         """
         folders = [Path(i) for i in os_sorted(path.iterdir()) if i.is_dir()]
         for folder in folders:
@@ -679,87 +701,6 @@ class SavefileManager:
             self.PathLabel_g.config(text="Current game directory: ")
         self.UpdateTree(init=True)
 
-    def Choose(self, index, win: AddEditWindow):
-        if index == 0:
-            while True:
-                new = askstring(
-                    "Profile Name",
-                    "Choose a profile name",
-                    parent=win,
-                    initialvalue=win.entry_profile.get(),
-                )
-                if new == "Add...":
-                    logging.warning(f"Invalid name choice '{new}'")
-                    messagebox.showwarning(
-                        "Invalid Name", "Please choose another profile name"
-                    )
-                    continue
-                else:
-                    break
-            if new:
-                win.entry_profile.state(["!readonly"])
-                win.entry_profile.delete(0, END)
-                win.entry_profile.insert(0, new)
-                win.entry_profile.state(["readonly"])
-        elif index == 1:
-            startDir = (
-                self.settings["CurrProfile"][index]
-                if self.settings["CurrProfile"]
-                else ""
-            )
-            new = filedialog.askdirectory(
-                initialdir=startDir,
-                parent=win,
-                title="Choose your OWN personal saves folder",
-            )
-            if new:
-                win.entry_p.state(["!readonly"])
-                win.entry_p.delete(0, END)
-                win.entry_p.insert(0, new)
-                win.entry_p.state(["readonly"])
-        elif index == 2:
-            startDir = (
-                self.settings["CurrProfile"][index]
-                if self.settings["CurrProfile"]
-                else ""
-            )
-            new = filedialog.askdirectory(
-                initialdir=startDir,
-                parent=win,
-                title="Choose the GAME'S  saves folder",
-            )
-            if new:
-                win.entry_g.state(["!readonly"])
-                win.entry_g.delete(0, END)
-                win.entry_g.insert(0, new)
-                win.entry_g.state(["readonly"])
-        elif index == 3:
-            new = askstring(
-                "File Extension",
-                "Enter the file extension of the savefiles e.g. .sgd,.save,...\n For files with no extension use '*'",
-                parent=win,
-            )
-            if new:
-                if new == "*":
-                    new = ""
-                elif not new.startswith(".") and len(new) >= 1:
-                    new = "." + new
-                win.entry_ext.state(["!readonly"])
-                win.entry_ext.delete(0, END)
-                win.entry_ext.insert(0, new)
-                win.entry_ext.state(["readonly"])
-        if not new:
-            win.grab_set()
-            win.wait_window()
-            return
-        if not win.entry_ext.get() and (index == 1 or index == 2):
-            win.entry_ext.state(["!readonly"])
-            win.entry_ext.delete(0, END)
-            win.entry_ext.insert(0, Helpers.GetExt(Path(new)))
-            win.entry_ext.state(["readonly"])
-        win.grab_set()
-        win.wait_window()
-
     def AddProfile(self):
         """
         Asks user to add a profile by asking for two directories,
@@ -767,10 +708,10 @@ class SavefileManager:
         a profile name, and a file extension, then saves it
         """
 
-        def ok_callback():
-            dir_p = addWin.entry_p.get()
-            dir_g = addWin.entry_g.get()
-            ext = addWin.entry_ext.get()
+        def ok_callback(add: AddEditWindow):
+            dir_p = add.entry_p.get()
+            dir_g = add.entry_g.get()
+            ext = add.entry_ext.get()
             if not (dir_p and dir_g):
                 logging.warning("Incomplete profile warning")
                 messagebox.showwarning(
@@ -779,8 +720,8 @@ class SavefileManager:
                 )
                 return
             newProf = (
-                addWin.entry_profile.get()
-                if addWin.entry_profile.get()
+                add.entry_profile.get()
+                if add.entry_profile.get()
                 else f"Profile {self.settings['ProfileCount']+1}"
             )
             if newProf in self.settings["Profiles"]:
@@ -789,6 +730,7 @@ class SavefileManager:
                     "Profile Name Exists",
                     "Profile name already exists please choose another one",
                 )
+                return
             self.settings["Profiles"][newProf] = [newProf, dir_p, dir_g, ext]
             self.ddlOpt = natsorted(self.settings["Profiles"].keys())
             self.ddlOpt.append("Add...")
@@ -799,11 +741,13 @@ class SavefileManager:
                 self.button_replace.state(["!disabled"])
                 self.button_backup.state(["!disabled"])
             self.settings["ProfileCount"] = len(self.settings["Profiles"])
-            addWin.on_close()
-            return True
+            add.profile_added = True
+            add.on_close()
 
-        addWin = AddEditWindow(self._root, self.Choose, ok_callback, "Add Profile")
-        return False
+        addWin = AddEditWindow(
+            self._root, self.settings["CurrProfile"], ok_callback, "Add Profile"
+        )
+        return addWin.profile_added
 
     def EditProfile(self):
         """
@@ -814,11 +758,21 @@ class SavefileManager:
             messagebox.showwarning("No profiles", "No profiles exist. Add one first")
             return
 
-        def ok_callback():
-            prof = editwin.entry_profile.get()
-            dir_p = editwin.entry_p.get()
-            dir_g = editwin.entry_g.get()
-            ext = editwin.entry_ext.get()
+        def ok_callback(edit: AddEditWindow):
+            prof = edit.entry_profile.get()
+            dir_p = edit.entry_p.get()
+            dir_g = edit.entry_g.get()
+            ext = edit.entry_ext.get()
+            if (
+                prof != self.settings["CurrProfile"][0]
+                and prof in self.settings["Profiles"]
+            ):
+                logging.warning("Profile name already exists")
+                messagebox.showwarning(
+                    "Profile Name Exists",
+                    "Profile name already exists please choose another one",
+                )
+                return
             if prof not in self.settings["Profiles"]:
                 self.settings["Profiles"][prof] = self.settings["CurrProfile"]
                 try:
@@ -831,9 +785,11 @@ class SavefileManager:
                 self.DDL.set(prof)
             self.settings["Profiles"][prof] = prof, dir_p, dir_g, ext
             self.DDL.event_generate("<<ComboboxSelected>>")
-            editwin.on_close()
+            edit.on_close()
 
-        editwin = AddEditWindow(self._root, self.Choose, ok_callback, "Edit Profile")
+        editwin = AddEditWindow(
+            self._root, self.settings["CurrProfile"], ok_callback, "Edit Profile"
+        )
 
         editwin.entry_profile.state(["!readonly"])
         editwin.entry_profile.insert(0, self.settings["CurrProfile"][0])
