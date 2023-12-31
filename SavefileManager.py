@@ -1,6 +1,7 @@
 # Tkinter modules
 from tkinter import *
 from tkinter import ttk, messagebox
+from PIL import Image, ImageTk
 from tkinter.simpledialog import askstring
 
 # general modules
@@ -11,9 +12,10 @@ import shutil, errno
 from os import startfile
 from pathlib import Path
 import logging
-from natsort import os_sorted, natsorted
+from natsort import natsorted
 
 # my modules
+from SFMTree import SFMTree
 from Theme import Theme
 from AddEditWindow import AddEditWindow
 from TreeviewToolTip import TVToolTip
@@ -21,9 +23,13 @@ import Helpers
 
 # TODO:
 # -[X] Tooltips
+# -[X] Implement SFMTree
+# -[] Get admin privileges
+# -[] Underline/highlight folder labels
+# -[] Center message boxes
+# -[] Clean up backup function
 # -[] Resizing
 # -[] Auto convert for arkham?
-# -[] Center message boxes
 
 
 class SavefileManager:
@@ -245,8 +251,6 @@ class SavefileManager:
         self.frame_body.rowconfigure(1, weight=2)
 
         # Treeview
-        from PIL import Image, ImageTk
-
         # Add icons for files and folders
         self.fileIco = ImageTk.PhotoImage(
             Image.open("images/ico1.ico").resize((20, 20), Image.LANCZOS)
@@ -254,11 +258,26 @@ class SavefileManager:
         self.folderIco = ImageTk.PhotoImage(
             Image.open("images/ico4.ico").resize((22, 22), Image.LANCZOS)
         )
-        self.treeview_p = ttk.Treeview(
-            self.frame_body, selectmode="browse", height=17, show="tree"
+        self.treeview_p = SFMTree(
+            self.frame_body,
+            currFiles=self.settings["CurrFilesP"],
+            backupFolder=self.bakDeleted,
+            fileIco=self.fileIco,
+            folderIco=self.folderIco,
+            selectmode="browse",
+            height=17,
+            show="tree",
         )
-        self.treeview_g = ttk.Treeview(
-            self.frame_body, selectmode="browse", height=6, show="tree"
+        self.treeview_g = SFMTree(
+            self.frame_body,
+            currFiles=self.settings["CurrFilesG"],
+            backupFolder=self.bakDeleted,
+            subfolders=False,
+            fileIco=self.fileIco,
+            folderIco=self.folderIco,
+            selectmode="browse",
+            height=6,
+            show="tree",
         )
         # Add scrollbar
         self.yscroll = ttk.Scrollbar(
@@ -289,18 +308,13 @@ class SavefileManager:
 
         self.treeMenu_g = Menu()
         self.treeMenu_g.add_command(
-            label="Rename", command=lambda: self.TreeviewRename("G", self.treeview_g)
+            label="Rename", command=lambda: self.treeview_g.RenameFile(warn=True)
         )
-        self.treeMenu_g.add_command(
-            label="Delete", command=lambda: self.TreeviewDelete("G")
-        )
+        self.treeMenu_g.add_command(label="Delete", command=self.treeview_g.DeleteFile)
+
         self.treeMenu_p = Menu()
-        self.treeMenu_p.add_command(
-            label="Rename", command=lambda: self.TreeviewRename("P", self.treeview_p)
-        )
-        self.treeMenu_p.add_command(
-            label="Delete", command=lambda: self.TreeviewDelete("P")
-        )
+        self.treeMenu_p.add_command(label="Rename", command=self.treeview_p.RenameFile)
+        self.treeMenu_p.add_command(label="Delete", command=self.treeview_p.DeleteFile)
         self.treeview_g.bind("<Button-3>", self.TreeviewMenu)
         self.treeview_p.bind("<Button-3>", self.TreeviewMenu)
         TVToolTip(
@@ -320,8 +334,19 @@ class SavefileManager:
         # otherwise disable the buttons
         if self.settings["CurrProfile"]:
             # self.UpdateTree(init=True)
-            Thread(target=self.UpdateTree, kwargs={"init": True, "tree": "P"}).start()
-            Thread(target=self.UpdateTree, kwargs={"init": True, "tree": "G"}).start()
+            Thread(
+                target=self.treeview_g.Update,
+                kwargs={
+                    "init": True,
+                    "folderPath": self.settings["CurrProfile"][2],
+                    "extension": self.settings["CurrProfile"][3],
+                },
+            ).start()
+            self.fileCount = self.treeview_p.Update(
+                init=True,
+                folderPath=self.settings["CurrProfile"][1],
+                extension=self.settings["CurrProfile"][3],
+            )
         else:
             self.button_backup.state(["disabled"])
             self.button_replace.state(["disabled"])
@@ -372,307 +397,6 @@ class SavefileManager:
         elif inTree_p and self.treeview_p.selection():
             self.treeMenu_p.post(event.x_root, event.y_root)
 
-    def TreeviewDelete(self, tree: str):
-        if not messagebox.askyesno(
-            "Deleting file", "Are you sure you want to delete the file?"
-        ):
-            return
-        if tree == "G":
-            selection = self.treeview_g.selection()[0]
-            parent = self.treeview_g.parent(selection)
-            index = self.treeview_g.index(selection) - 1
-            index = 1 if index < 0 else index
-            removed = Path(self.settings["CurrFilesG"][selection])
-            backup = self.bakDeleted / (
-                datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
-            )
-            try:
-                shutil.copytree(removed, backup)
-            except OSError as e:
-                if e.errno in (errno.ENOTDIR, errno.EINVAL):
-                    shutil.copy2(removed, backup)
-                else:
-                    logging.error(f"Couldn't copy file {e.strerror}")
-                    messagebox.showerror(
-                        "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
-                    )
-                    return
-            if parent:
-                self.treeview_g.selection_set(parent)
-            elif len(self.treeview_g.get_children()) > 1:
-                self.treeview_g.selection_set(self.treeview_g.get_children()[index])
-            try:
-                shutil.rmtree(removed)
-            except OSError as e:
-                if e.errno in (errno.ENOTDIR, errno.EINVAL):
-                    removed.unlink()
-                else:
-                    logging.error(f"Couldn't copy file {e.strerror}")
-                    messagebox.showerror(
-                        "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
-                    )
-                    return
-            for child in self.treeview_g.get_children(selection):
-                self.settings["CurrFilesG"].pop(child)
-            self.settings["CurrFilesG"].pop(selection)
-            self.treeview_g.delete(selection)
-        elif tree == "P":
-            selection = self.treeview_p.selection()[0]
-            parent = self.treeview_p.parent(selection)
-            index = self.treeview_p.index(selection) - 1
-            index = 1 if index < 0 else index
-            removed = Path(self.settings["CurrFilesP"][selection])
-            backup = self.bakDeleted / (
-                datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + removed.name
-            )
-            try:
-                shutil.copytree(removed, backup)
-            except OSError as e:
-                if e.errno in (errno.ENOTDIR, errno.EINVAL):
-                    shutil.copy2(removed, backup)
-                else:
-                    logging.error(f"Couldn't copy file {e.strerror}")
-                    messagebox.showerror(
-                        "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
-                    )
-                    return
-            if parent:
-                self.treeview_p.selection_set(parent)
-            elif len(self.treeview_p.get_children()) > 1:
-                self.treeview_p.selection_set(self.treeview_p.get_children()[index])
-            try:
-                shutil.rmtree(removed)
-            except OSError as e:
-                if e.errno in (errno.ENOTDIR, errno.EINVAL):
-                    removed.unlink()
-                else:
-                    logging.error(f"Couldn't copy file {e.strerror}")
-                    messagebox.showerror(
-                        "FAILED DELETE ERROR", "Couldn't delete file. Check log file"
-                    )
-                    return
-            for child in self.treeview_p.get_children(selection):
-                self.settings["CurrFilesP"].pop(child)
-            self.settings["CurrFilesP"].pop(selection)
-            self.treeview_p.delete(selection)
-
-    def TreeviewRename(self, tree: str, treeview: ttk.Treeview):
-        if tree == "G":
-            change = messagebox.askyesno(
-                "Changing game file name",
-                "The game may not recognize the savefile if you rename it.\nAre you sure you want to rename?",
-            )
-            if not change:
-                return
-
-        selection = treeview.selection()[0]
-        defaultVal = treeview.item(selection, "text")
-        newname = askstring(
-            "New name",
-            "Enter new name for the file",
-            parent=self._root,
-            initialvalue=defaultVal,
-        )
-        if not newname:
-            return
-
-        # add file extension to newname if it isn't a folder
-        if not newname.endswith(f"{self.settings['CurrProfile'][3]}"):
-            if (
-                tree == "P"
-                and not Path(self.settings["CurrFilesP"][selection]).is_dir()
-            ) or tree == "G":
-                newname += self.settings["CurrProfile"][3]
-        overwrite = True
-        if tree == "P":
-            toSelect = self.treeview_p.parent(selection) + newname
-            renamed = Path(self.settings["CurrFilesP"][selection])
-            lowerCaseDict = set(k.lower() for k in self.settings["CurrFilesP"])
-            # if selection is a file in a subfolder only check name in that subfolder
-            if self.treeview_p.parent(selection):
-                exists = toSelect.lower() in lowerCaseDict
-            else:
-                exists = newname.lower() in lowerCaseDict
-            if exists:
-                overwrite = messagebox.askyesno(
-                    "Already exists",
-                    "File name already exists would you like to overwrite it?",
-                )
-            if overwrite:
-                renamed = renamed.replace(renamed.parent / newname)
-                self.UpdateTree(tree="P", toSelect_p=toSelect)
-        elif tree == "G":
-            renamed = Path(self.settings["CurrFilesG"][selection])
-            lowerCaseDict = set(k.lower() for k in self.settings["CurrFilesG"])
-            if newname.lower() in lowerCaseDict:
-                overwrite = messagebox.askyesno(
-                    "Already exists",
-                    "File name already exists would you like to overwrite it?",
-                )
-            if overwrite:
-                renamed = renamed.replace(renamed.parent / newname)
-                self.UpdateTree(tree="G", toSelect_g=newname)
-            logging.warning("Game file name changed")
-
-    def UpdateTree(
-        self,
-        tree: str = "Both",
-        toSelect_p: str = None,
-        toSelect_g: str = None,
-        init: bool = False,
-    ):
-        """
-        Initializes the treeviews and handles
-        any updates when switching between profiles
-
-        Args:
-            tree: Determines which tree to update.
-                Can be ['G', 'P', 'Both']
-
-            toSelect_p: id of item to select after updating left treeview
-
-            toSelect_g: id of item to select after updating right treeview
-
-            init: Used when checking if subfolders are open.
-                There would be no subfolders to check if
-                there is nothing in the treeviews i.e., during initilization
-        """
-        if tree == "P" or tree == "Both":
-            # Check which folders are open in the treeview and store their iids
-            if not init:
-                isOpen = {
-                    p
-                    for p in self.settings["CurrFilesP"]
-                    if self.treeview_p.item(p, "open")
-                }
-            # Delete treeview items and clear the CurrFiles dicts
-            # then repopulate the treeviews
-            for child in self.treeview_p.get_children():
-                self.treeview_p.delete(child)
-            self.settings["CurrFilesP"].clear()
-            if self.settings["CurrProfile"]:
-                p = Path(self.settings["CurrProfile"][1])
-                # Add folders and their subfolders for the personal directory
-                self.AddSubfolders(p, tree="p")
-                self.fileCount = 0
-                # Add the rest of the files
-                files = [
-                    Path(f)
-                    for f in os_sorted(p.glob(f"*{self.settings['CurrProfile'][3]}"))
-                    if f.is_file()
-                ]
-                for file in files:
-                    self.fileCount += 1
-                    # uses file name as tree id
-                    self.treeview_p.insert(
-                        "", "end", file.name, text=file.name, image=self.fileIco
-                    )
-                    self.settings["CurrFilesP"][file.name] = str(file)
-                if toSelect_p and toSelect_p in self.settings["CurrFilesP"]:
-                    self.treeview_p.selection_set(toSelect_p)
-                    self.treeview_p.see(toSelect_p)
-                # Reopen the folders that were previously open before update
-                if not init and isOpen:
-                    for toOpen in isOpen:
-                        self.treeview_p.item(toOpen, open="true")
-                    del isOpen
-        if tree == "G" or tree == "Both":
-            if not init:
-                isOpen = {
-                    p
-                    for p in self.settings["CurrFilesG"]
-                    if self.treeview_g.item(p, "open")
-                }
-            for child in self.treeview_g.get_children():
-                self.treeview_g.delete(child)
-            self.settings["CurrFilesG"].clear()
-            if self.settings["CurrProfile"]:
-                # Add the files in the game's directory
-                g = Path(self.settings["CurrProfile"][2])
-                # Ignore folders and subfolders that have no files with the specified ext
-                if len(list(g.glob(f"**/*{self.settings['CurrProfile'][3]}"))) > 0:
-                    # Add folders and their subfolders for the game's directory
-                    self.AddSubfolders(g, tree="g")
-                files = [
-                    Path(f)
-                    for f in os_sorted(g.glob(f"*{self.settings['CurrProfile'][3]}"))
-                    if f.is_file()
-                ]
-                for file in files:
-                    self.treeview_g.insert(
-                        "", "end", file.name, text=file.name, image=self.fileIco
-                    )
-                    self.settings["CurrFilesG"][file.name] = str(file)
-                if toSelect_g and toSelect_g in self.settings["CurrFilesG"]:
-                    self.treeview_g.selection_set(toSelect_g)
-                    self.treeview_g.see(toSelect_g)
-                    self.treeview_g.focus(toSelect_g)
-                if not init and isOpen:
-                    for toOpen in isOpen:
-                        self.treeview_g.item(toOpen, open=True)
-        self.Save()
-
-    def AddSubfolders(self, path: Path, Parent="", tree=""):
-        """
-        Recursively adds subfolders to the treeview
-        and adds all the save files in them
-
-        Args:
-            path: Path object, originally the personal/game directory
-                then called recursively with its subfolders
-
-            Parent: The id of the parent in the treeview.
-                Initially '' which is the root, then it is the id
-                of added subfolders to be able to add their subfolders
-
-            tree: which tree to operate on. "P" or "G"
-        """
-        folders = [Path(i) for i in os_sorted(path.iterdir()) if i.is_dir()]
-        for folder in folders:
-            files = [
-                Path(f)
-                for f in os_sorted(folder.glob(f"*{self.settings['CurrProfile'][3]}"))
-                if f.is_file()
-            ]
-            if tree == "p":
-                # use folder name as tree iid
-                # for subfolder use folder name concatenated with subfolder name
-                Parentiid = self.treeview_p.insert(
-                    Parent,
-                    "end",
-                    Parent + folder.name,
-                    text=folder.name,
-                    image=self.folderIco,
-                )
-                self.settings["CurrFilesP"][Parentiid] = str(folder)
-                self.AddSubfolders(folder, Parent=Parentiid, tree="p")
-                # fmt: off
-                for file in files:
-                    Parentiid2 = self.treeview_p.insert(
-                        Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
-                    )
-                    self.settings["CurrFilesP"][Parentiid2] = str(file)
-                # fmt: on
-            elif tree == "g":
-                # use folder name as tree iid
-                # for subfolder use folder name concatenated with subfolder name
-                Parentiid = self.treeview_g.insert(
-                    Parent,
-                    "end",
-                    Parent + folder.name,
-                    text=folder.name,
-                    image=self.folderIco,
-                )
-                self.settings["CurrFilesG"][Parentiid] = str(folder)
-                self.AddSubfolders(folder, Parent=Parentiid, tree="g")
-                # fmt: off
-                for file in files:
-                    Parentiid2 = self.treeview_g.insert(
-                        Parentiid, "end", Parentiid + file.name, text=file.name, image=self.fileIco
-                    )
-                    self.settings["CurrFilesG"][Parentiid2] = str(file)
-                # fmt: on
-
     def updateDDL(self, event: Event):
         """
         Updates treeviews and settings json
@@ -696,10 +420,22 @@ class SavefileManager:
             self.PathLabel_g.config(
                 text="Current game directory: " + self.settings["CurrProfile"][2]
             )
+            self.fileCount = self.treeview_p.Update(
+                init=True,
+                folderPath=self.settings["CurrProfile"][1],
+                extension=self.settings["CurrProfile"][3],
+            )
+            self.treeview_g.Update(
+                init=True,
+                folderPath=self.settings["CurrProfile"][2],
+                extension=self.settings["CurrProfile"][3],
+            )
         else:
             self.PathLabel_p.config(text="Current personal directory: ")
             self.PathLabel_g.config(text="Current game directory: ")
-        self.UpdateTree(init=True)
+            self.fileCount = self.treeview_p.Update(init=True)
+            self.treeview_g.Update(init=True)
+        self.Save()
 
     def AddProfile(self):
         """
@@ -810,7 +546,7 @@ class SavefileManager:
         then selects the next one in the list
         """
         remove = messagebox.askyesno(
-            "Removing Profile", "Are you sure you want to remove the current profile"
+            "Removing Profile", "Are you sure you want to remove the current profile?"
         )
         if not remove:
             return
@@ -1009,7 +745,8 @@ class SavefileManager:
                 messagebox.showerror(
                     "COPY ERORR", "Couldn't copy the file. Check log file"
                 )
-        self.UpdateTree(tree="P", toSelect_p=toSelect_p)
+        self.fileCount = self.treeview_p.Update(toSelect=toSelect_p)
+        self.Save()
 
     def Save(self):
         """Save all the settings to the settings file"""
@@ -1051,19 +788,19 @@ class SavefileManager:
 
         # if last modified time is greater than one second update the treeview
         if now - time_p > timedelta(seconds=1) and now - time_p < timedelta(seconds=3):
-            self.UpdateTree(tree="P", toSelect_p=toSelect_p)
+            self.fileCount = self.treeview_p.Update(toSelect=toSelect_p)
         if now - time_g > timedelta(seconds=1) and now - time_g < timedelta(seconds=3):
-            self.UpdateTree(tree="G", toSelect_g=toSelect_g)
+            self.treeview_g.Update(toSelect=toSelect_g)
 
         # check all subfolders recursively
         for file in path_p.rglob("*"):
             time = datetime.fromtimestamp(file.stat().st_mtime)
             if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=3):
-                self.UpdateTree(tree="P", toSelect_p=toSelect_p)
+                self.fileCount = self.treeview_p.Update(toSelect=toSelect_p)
         for file in path_g.rglob("*"):
             time = datetime.fromtimestamp(file.stat().st_mtime)
             if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=3):
-                self.UpdateTree(tree="G", toSelect_g=toSelect_g)
+                self.treeview_g.Update(toSelect=toSelect_g)
 
         self.checker_id = self._root.after(1000, self.FileChecker)
 
@@ -1073,9 +810,16 @@ class SavefileManager:
 
 
 def main():
+    # import ctypes, sys
+
+    # if ctypes.windll.shell32.IsUserAnAdmin():
     root = Tk()
     savefileManager = SavefileManager(root)
     root.mainloop()
+    # else:
+    #     ctypes.windll.shell32.ShellExecuteW(
+    #         None, "runas", sys.executable, " ".join(sys.argv), None, 1
+    #     )
 
 
 if __name__ == "__main__":
