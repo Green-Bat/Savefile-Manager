@@ -24,12 +24,13 @@ import Helpers
 # TODO:
 # -[X] Tooltips
 # -[X] Implement SFMTree
+# -[X] Highlight folder labels
 # -[] Get admin privileges
-# -[] Underline/highlight folder labels
 # -[] Center message boxes
 # -[] Clean up backup function
 # -[] Resizing
 # -[] Auto convert for arkham?
+# -[] Underline folder labels
 
 
 class SavefileManager:
@@ -126,6 +127,7 @@ class SavefileManager:
         self.theme = Theme(self._root)
 
         root.protocol("WM_DELETE_WINDOW", self.on_close)
+        root.bind("<Button-1>", lambda e: root.focus_set())
         root.title("Savefile Manager")
         root.resizable(False, False)
         root.minsize(490, 485)
@@ -215,20 +217,30 @@ class SavefileManager:
 
         # Path Labels
         label_p = (
-            self.settings["CurrProfile"][1] if self.settings["CurrProfile"] else ""
+            "Current personal directory: " + self.settings["CurrProfile"][1]
+            if self.settings["CurrProfile"]
+            else ""
         )
         label_g = (
-            self.settings["CurrProfile"][2] if self.settings["CurrProfile"] else ""
+            "Current game directory: " + self.settings["CurrProfile"][2]
+            if self.settings["CurrProfile"]
+            else ""
         )
         self.PathLabel_p = ttk.Label(
             self.frame_header,
-            text="Current personal directory: " + label_p,
+            text=label_p,
+            width=self.geo[0] if label_g else 0,
             wraplength=self.geo[0],
+            style="Path.TLabel",
+            cursor="hand2",
         )
         self.PathLabel_g = ttk.Label(
             self.frame_header,
-            text="Current game directory: " + label_g,
+            text=label_g,
+            width=self.geo[0] if label_g else 0,
             wraplength=self.geo[0],
+            style="Path.TLabel",
+            cursor="hand2",
         )
         # double clicking the paths will open the folder in file explorer
         self.PathLabel_p.bind(
@@ -295,10 +307,10 @@ class SavefileManager:
         self.frame_button = ttk.Frame(self.frame_body)
         self.frame_button.grid(row=0, column=1)
         self.button_replace = ttk.Button(
-            self.frame_button, text="=>", command=self.Replace
+            self.frame_button, text="=>", command=self.Replace, cursor="hand2"
         )
         self.button_backup = ttk.Button(
-            self.frame_button, text="<=", command=self.Backup
+            self.frame_button, text="<=", command=self.Backup, cursor="hand2"
         )
         self.button_replace.grid(row=0, column=0, sticky="ns", pady=5)
         self.button_backup.grid(row=1, column=0, sticky="ns", pady=5)
@@ -415,10 +427,12 @@ class SavefileManager:
         # Change path labels
         if self.settings["CurrProfile"]:
             self.PathLabel_p.config(
-                text="Current personal directory: " + self.settings["CurrProfile"][1]
+                text="Current personal directory: " + self.settings["CurrProfile"][1],
+                width=self.geo[0],
             )
             self.PathLabel_g.config(
-                text="Current game directory: " + self.settings["CurrProfile"][2]
+                text="Current game directory: " + self.settings["CurrProfile"][2],
+                width=self.geo[0],
             )
             self.fileCount = self.treeview_p.Update(
                 init=True,
@@ -431,8 +445,8 @@ class SavefileManager:
                 extension=self.settings["CurrProfile"][3],
             )
         else:
-            self.PathLabel_p.config(text="Current personal directory: ")
-            self.PathLabel_g.config(text="Current game directory: ")
+            self.PathLabel_p.config(text="", width=0)
+            self.PathLabel_g.config(text="", width=0)
             self.fileCount = self.treeview_p.Update(init=True)
             self.treeview_g.Update(init=True)
         self.Save()
@@ -812,14 +826,14 @@ class SavefileManager:
 def main():
     # import ctypes, sys
 
-    # if ctypes.windll.shell32.IsUserAnAdmin():
-    root = Tk()
-    savefileManager = SavefileManager(root)
-    root.mainloop()
-    # else:
+    # if not ctypes.windll.shell32.IsUserAnAdmin():
     #     ctypes.windll.shell32.ShellExecuteW(
     #         None, "runas", sys.executable, " ".join(sys.argv), None, 1
     #     )
+    #   sys.exit()
+    root = Tk()
+    savefileManager = SavefileManager(root)
+    root.mainloop()
 
 
 if __name__ == "__main__":

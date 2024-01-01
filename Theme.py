@@ -13,7 +13,16 @@ class Theme:
                         "width": 4,
                         "font": ("Arial", 10),
                         "anchor": "center",
-                    }
+                    },
+                    "map": {
+                        "relief": [("pressed", "solid"), ("disabled", "sunken")],
+                    },
+                },
+                "Path.TLabel": {
+                    "configure": {
+                        "foreground": "black",
+                    },
+                    "map": {"foreground": [("hover", "#57b6ff")]},
                 },
                 "Treeview": {"configure": {"indent": 10}},
             },
@@ -41,7 +50,9 @@ class Theme:
                         "width": 2,
                         "anchor": "center",
                     },
-                    "map": {"relief": [("pressed", "solid")]},
+                    "map": {
+                        "relief": [("pressed", "solid"), ("disabled", "sunken")],
+                    },
                 },
                 "TCombobox": {
                     "configure": {
@@ -56,7 +67,14 @@ class Theme:
                     "configure": {
                         "background": self.themes["Dark"][2],
                         "foreground": self.themes["Dark"][3],
-                    }
+                    },
+                },
+                "Path.TLabel": {
+                    "configure": {
+                        "background": self.themes["Dark"][2],
+                        "foreground": self.themes["Dark"][3],
+                    },
+                    "map": {"foreground": [("hover", "#838aeb")]},
                 },
                 "Treeview": {
                     "configure": {
@@ -95,7 +113,7 @@ class Theme:
                         "width": 2,
                         "anchor": "center",
                     },
-                    "map": {"relief": [("pressed", "solid")]},
+                    "map": {"relief": [("pressed", "solid"), ("disabled", "sunken")]},
                 },
                 "TCombobox": {
                     "configure": {
@@ -111,6 +129,13 @@ class Theme:
                         "background": self.themes["Dark"][2],
                         "foreground": self.themes["Dark"][3],
                     }
+                },
+                "Path.TLabel": {
+                    "configure": {
+                        "background": self.themes["Dark"][2],
+                        "foreground": self.themes["Dark"][3],
+                    },
+                    "map": {"foreground": [("hover", "#838aeb")]},
                 },
                 "Treeview": {
                     "configure": {
@@ -148,7 +173,7 @@ class Theme:
                         "width": 2,
                         "anchor": "center",
                     },
-                    "map": {"relief": [("pressed", "solid")]},
+                    "map": {"relief": [("pressed", "solid"), ("disabled", "sunken")]},
                 },
                 "TCombobox": {
                     "configure": {
@@ -164,6 +189,13 @@ class Theme:
                         "background": self.themes["Solarized"][2],
                         "foreground": self.themes["Solarized"][3],
                     }
+                },
+                "Path.TLabel": {
+                    "configure": {
+                        "background": self.themes["Solarized"][2],
+                        "foreground": self.themes["Solarized"][3],
+                    },
+                    "map": {"foreground": [("hover", "#8957ff")]},
                 },
                 "Treeview": {
                     "configure": {
