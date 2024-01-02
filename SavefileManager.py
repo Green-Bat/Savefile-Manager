@@ -25,9 +25,9 @@ import Helpers
 # -[X] Tooltips
 # -[X] Implement SFMTree
 # -[X] Highlight folder labels
-# -[] Get admin privileges
+# -[X] Get admin privileges
+# -[/] Clean up backup/replace function
 # -[] Center message boxes
-# -[] Clean up backup function
 # -[] Resizing
 # -[] Auto convert for arkham?
 # -[] Underline folder labels
@@ -114,7 +114,7 @@ class SavefileManager:
             except OSError as e:
                 logging.error(f"Couldn't generate settings file {e.strerror}")
                 messagebox.showerror("ERROR", "Couldn't make settings file.")
-                self._root.destroy()
+                root.destroy()
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # -------------------- GUI INIT  -------------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -618,28 +618,27 @@ class SavefileManager:
         try:
             if "BAK" in dst.name:
                 Helpers.AKReplace(src, dst, self.settings)
-            else:
+            elif src.is_dir():
                 shutil.copytree(src, dst, dirs_exist_ok=True)
-        except OSError as e:
-            if e.errno in (errno.ENOTDIR, errno.EINVAL):
+            elif src.is_file():
                 shutil.copy2(src, dst)
-            else:
-                logging.error(f"Couldn't copy {e.strerror}")
-                messagebox.showerror("COPY ERORR", "Couldn't copy. Check log file.")
-                self._root.after(250, self.button_replace.state, ["!disabled"])
-                return
+        except OSError as e:
+            logging.error(f"Couldn't copy {e.strerror}")
+            messagebox.showerror("COPY ERORR", "Couldn't copy. Check log file.")
+            self._root.after(250, self.button_replace.state, ["!disabled"])
+            return
         backup = self.bak / (
             datetime.now().strftime("%Y_%m_%d_%Hhr_%Mmin_%Ss_") + dst.name
         )
         try:
-            shutil.copytree(dst, backup)
-        except OSError as e:
-            if e.errno in (errno.ENOTDIR, errno.EINVAL):
+            if dst.is_dir():
+                shutil.copytree(dst, backup)
+            elif dst.is_file():
                 shutil.copy2(dst, backup)
-            else:
-                logging.error(f"Couldn't copy {e.strerror}")
-                messagebox.showerror("COPY ERORR", "Couldn't copy. Check log file.")
-                return
+        except OSError as e:
+            logging.error(f"Couldn't copy {e.strerror}")
+            messagebox.showerror("COPY ERORR", "Couldn't copy. Check log file.")
+            return
         finally:
             self._root.after(250, self.button_replace.state, ["!disabled"])
 
@@ -710,11 +709,10 @@ class SavefileManager:
                     and dst == Path(self.settings["CurrProfile"][1])
                 ) or (toSelect_p + backupName + ext).lower() in lowerCaseDict
                 if exists:
-                    overwrite = messagebox.askyesno(
+                    if overwrite := messagebox.askyesno(
                         "Already exists",
                         "File name already exists would you like to overwrite it?",
-                    )
-                    if overwrite:
+                    ):
                         break
                     else:
                         continue
@@ -824,13 +822,13 @@ class SavefileManager:
 
 
 def main():
-    # import ctypes, sys
+    import ctypes, sys
 
-    # if not ctypes.windll.shell32.IsUserAnAdmin():
-    #     ctypes.windll.shell32.ShellExecuteW(
-    #         None, "runas", sys.executable, " ".join(sys.argv), None, 1
-    #     )
-    #   sys.exit()
+    if not ctypes.windll.shell32.IsUserAnAdmin():
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, " ".join(sys.argv), None, 1
+        )
+        sys.exit()
     root = Tk()
     savefileManager = SavefileManager(root)
     root.mainloop()
