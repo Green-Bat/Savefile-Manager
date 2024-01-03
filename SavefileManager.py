@@ -5,13 +5,11 @@ from PIL import Image, ImageTk
 from tkinter.simpledialog import askstring
 
 # general modules
-import json
+import shutil, logging, json
+from pathlib import Path
 from threading import Thread
 from datetime import datetime, timedelta
-import shutil, errno
 from os import startfile
-from pathlib import Path
-import logging
 from natsort import natsorted
 
 # my modules
@@ -26,7 +24,8 @@ import Helpers
 # -[X] Implement SFMTree
 # -[X] Highlight folder labels
 # -[X] Get admin privileges
-# -[/] Clean up backup/replace function
+# -[X] Clean up backup/replace functions
+#   -[X] Bug when overwriting folders
 # -[] Center message boxes
 # -[] Resizing
 # -[] Auto convert for arkham?
@@ -653,41 +652,37 @@ class SavefileManager:
         """
         overwrite, toSub = False, True
         selection_p = self.treeview_p.selection()
+        selection_p = selection_p[0] if selection_p else ""
         selection_g = self.treeview_g.selection()
-        parent = self.treeview_p.parent(selection_p[0]) if selection_p else ""
+        parent = self.treeview_p.parent(selection_p)
         toSelect_p = ""
-        # Warn user if a game file is not selected
         if not selection_g:
             messagebox.showwarning(
                 "No selection",
                 "Please choose a file/folder to backup from the right list",
             )
             return
-        parentg = self.treeview_g.parent(selection_g[0])
         src = Path(self.settings["CurrFilesG"][selection_g[0]])
-        if src.is_file() and parentg:
-            src = src.parent
-        ext = self.settings["CurrProfile"][3]
         # If no personal file is selected use the main folder
         # otherwise use the selected folder/subfolder
         if not selection_p:
-            toSub = False
             dst = Path(self.settings["CurrProfile"][1])
-        elif parent:
-            dst = Path(self.settings["CurrFilesP"][selection_p[0]])
-            if dst.is_file():
-                # if selection is file within a subfolder set dst to that subfolder
-                # and selection to iid of that folder in the tree
-                toSelect_p = selection_p[0][: -len(dst.name)]
-                dst = dst.parent
-            else:
-                toSelect_p = selection_p[0]
         else:
-            dst = Path(self.settings["CurrFilesP"][selection_p[0]])
-            if dst.is_file():
-                dst = dst.parent
-            else:
-                toSelect_p = selection_p[0]
+            dst = Path(self.settings["CurrFilesP"][selection_p])
+            # if there are no files and only folders in the tree prompt user
+            # to choose where the backup will go, either main folder or current selection
+            if not parent and self.fileCount <= 0:
+                toSub = messagebox.askyesno(
+                    "Backup",
+                    "Add to currently selected folder (yes) or main folder (no)?",
+                )
+                dst = Path(self.settings["CurrProfile"][1]) if not toSub else dst
+
+        if dst.is_file():
+            toSelect_p = selection_p[: -len(dst.name)]
+            dst = dst.parent
+        else:
+            toSelect_p = selection_p
 
         while True:
             backupName = askstring(
@@ -699,64 +694,44 @@ class SavefileManager:
                 return
             elif not backupName:
                 messagebox.showwarning("No name", "Must choose a file name")
-                continue
-            # Check if chosen name already exists whether in the main folder
-            # or if subfolder is selected check inside the subfolder
             else:
-                lowerCaseDict = set(k.lower() for k in self.settings["CurrFilesP"])
-                exists = (
-                    (backupName + ext).lower() in lowerCaseDict
-                    and dst == Path(self.settings["CurrProfile"][1])
-                ) or (toSelect_p + backupName + ext).lower() in lowerCaseDict
-                if exists:
-                    if overwrite := messagebox.askyesno(
-                        "Already exists",
-                        "File name already exists would you like to overwrite it?",
-                    ):
-                        break
-                    else:
-                        continue
+                if src.is_file() and not backupName.endswith(src.suffix):
+                    backupName += src.suffix
+                if (temp := dst / backupName).exists():
+                    match [src.is_file(), temp.is_file()]:
+                        case [1, 0] | [0, 1]:
+                            messagebox.showwarning(
+                                "Already exists",
+                                "Can't use this name, choose another one.",
+                            )
+                        case [1, 1] | [0, 0]:
+                            overwrite = messagebox.askyesno(
+                                "Already exists",
+                                "File/folder already exists would you like to overwrite it?",
+                            )
+                            if overwrite:
+                                break
                 else:
                     break
-        # append extension to chosen name
-        backupName += ext
-        # if the selection is a subfolder use it as the path
-        # otherwise it's the main folder
-        if not dst.samefile(self.settings["CurrProfile"][1]) or parent:
-            # if there are no files in the main folder
-            # ask user if they want to add to the subfolder or the main one
-            if self.fileCount <= 0:
-                toSub = messagebox.askyesno(
-                    "Backup",
-                    "Add to currently selected subfolder (yes) or main folder (no)?",
-                    parent=self._root,
-                )
-            if toSub:
-                if not toSelect_p:
-                    toSelect_p = dst.name + backupName
-                else:
-                    toSelect_p += backupName
-                dst = dst / backupName
-            else:
-                toSelect_p = backupName
-                dst = Path(self.settings["CurrProfile"][1]) / backupName
+
+        if not dst.samefile(self.settings["CurrProfile"][1]):
+            toSelect_p += backupName
         else:
             toSelect_p = backupName
-            dst = Path(self.settings["CurrProfile"][1]) / backupName
 
+        dst = dst / backupName
         try:
-            if "BAK" in src.name:
-                Helpers.AKBackup(src, dst, self.settings)
-            else:
+            if src.is_file():
+                if "BAK" in src.name:
+                    Helpers.AKBackup(src, dst, self.settings)
+                else:
+                    shutil.copy(src, dst)
+            elif src.is_dir():
                 shutil.copytree(src, dst, dirs_exist_ok=overwrite)
         except OSError as e:
-            if e.errno in (errno.ENOTDIR, errno.EINVAL):
-                shutil.copy(src, dst)
-            else:
-                logging.error(f"Couldn't copy {e.strerror}")
-                messagebox.showerror(
-                    "COPY ERORR", "Couldn't copy the file. Check log file"
-                )
+            logging.error(f"Couldn't copy {e.strerror}")
+            messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
+            return
         self.fileCount = self.treeview_p.Update(toSelect=toSelect_p)
         self.Save()
 
