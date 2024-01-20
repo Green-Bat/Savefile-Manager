@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 from datetime import datetime
+from collections import defaultdict
 
 
 def GetExt(p: Path | str) -> str:
@@ -13,18 +14,12 @@ def GetExt(p: Path | str) -> str:
     if p.is_file():
         return p.suffix
 
-    exts = {}
+    exts = defaultdict(int)
     for file in p.iterdir():
-        if file.is_dir():
-            continue
-        if not exts.get(file.suffix):
-            exts[file.suffix] = 1
-        else:
+        if file.is_file():
             exts[file.suffix] += 1
-    if not exts:
-        return ""
-    else:
-        return max(exts, key=exts.get)
+
+    return max(exts, key=exts.get) if exts else ""
 
 
 def AKReplace(src: Path | str, dst: Path | str, settings):
@@ -37,7 +32,7 @@ def AKReplace(src: Path | str, dst: Path | str, settings):
     if isinstance(dst, str):
         dst = Path(dst)
     for i in range(3):
-        file = f"{dst.stem[0:-1]}{i}{settings['CurrProfile'][3]}"
+        file = f"{dst.stem[0:-1]}{i}.sgd"
         if file in settings["CurrFilesG"]:
             try:
                 shutil.copy2(src, dst.parent / file)
@@ -57,7 +52,7 @@ def AKBackup(src: Path | str, dst: Path | str, settings):
 
     filetimes = {}
     for i in range(3):
-        file = f"{src.stem[0:-1]}{i}{settings['CurrProfile'][3]}"
+        file = f"{src.stem[0:-1]}{i}.sgd"
         if file in settings["CurrFilesG"]:
             src = src.parent / file
             filetimes[file] = datetime.fromtimestamp(src.stat().st_mtime)

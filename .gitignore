@@ -12,6 +12,8 @@ dist/
 *.exe
 *.spec
 *.txt
+!requirements.txt
 .vscode
+.venv
 config
 MakeZip.py

@@ -7,6 +7,11 @@ import logging
 from pathlib import Path
 from shutil import copytree, copy2, rmtree
 from datetime import datetime
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from SavefileManager import SavefileManager
 
 from natsort import os_sorted
 
@@ -21,6 +26,7 @@ class SFMTree(Treeview):
         subfolders: bool = True,
         fileIco: PhotoImage = None,
         folderIco: PhotoImage = None,
+        save_callback: Callable[["SavefileManager"], None],
         **kwargs,
     ) -> None:
         super().__init__(master, **kwargs)
@@ -29,6 +35,7 @@ class SFMTree(Treeview):
         self.subfolders = subfolders
         self.fileIco = fileIco
         self.folderIco = folderIco
+        self.save = save_callback
 
     def Update(
         self,
@@ -64,6 +71,7 @@ class SFMTree(Treeview):
         self.currFiles.clear()
         # If no folder path means all profiles deleted so nothing to add
         if not (folderPath or self.mainFolder):
+            self.save()
             return 0
         folder = Path(self.mainFolder)
         # Recursively add subfolders if flag is set or
@@ -80,6 +88,7 @@ class SFMTree(Treeview):
         if toSelect and toSelect in self.currFiles:
             self.selection_set(toSelect)
             self.see(toSelect)
+        self.save()
         return len(files)
 
     def AddSubfolders(self, path: Path, parent: str = "") -> None:
@@ -201,3 +210,4 @@ class SFMTree(Treeview):
             self.currFiles.pop(child)
         self.currFiles.pop(selection)
         self.delete(selection)
+        self.save()

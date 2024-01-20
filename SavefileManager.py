@@ -20,13 +20,10 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
-# -[X] Tooltips
-# -[X] Implement SFMTree
-# -[X] Highlight folder labels
-# -[X] Get admin privileges
-# -[X] Clean up backup/replace functions
-#   -[X] Bug when overwriting folders
+# -[X] Fix crash when game/personal folder doesn't exist
+# -[] Rework saved files in settings file
 # -[] Center message boxes
+# -[] Auto-update
 # -[] Resizing
 # -[] Auto convert for arkham?
 # -[] Underline folder labels
@@ -36,7 +33,7 @@ class SavefileManager:
     def __init__(self, root: Tk):
         self.fileCount = 0
         # load settings json
-        self.configPath = Path().resolve() / "config"
+        self.configPath = Path(__file__).parent.resolve() / "config"
         self.settingsPath = self.configPath / "settings.json"
         self.logpath = self.configPath / "log.log"
         self.bak = self.configPath / "backups"
@@ -206,37 +203,20 @@ class SavefileManager:
             height=6,
             width=20,
         )
-
-        if self.settings["CurrProfile"]:
-            self.DDL.set(self.settings["CurrProfile"][0])
         self.DDL.state(["readonly"])
         self.DDL.bind("<<ComboboxSelected>>", self.updateDDL)
         self.DDL.bind("<<FocusOut>>", lambda e: self.DDL.selection_clear(0, END))
         self.DDL.grid(row=0, column=1, sticky="e", padx=5, pady=2)
 
         # Path Labels
-        label_p = (
-            "Current personal directory: " + self.settings["CurrProfile"][1]
-            if self.settings["CurrProfile"]
-            else ""
-        )
-        label_g = (
-            "Current game directory: " + self.settings["CurrProfile"][2]
-            if self.settings["CurrProfile"]
-            else ""
-        )
         self.PathLabel_p = ttk.Label(
             self.frame_header,
-            text=label_p,
-            width=self.geo[0] if label_g else 0,
             wraplength=self.geo[0],
             style="Path.TLabel",
             cursor="hand2",
         )
         self.PathLabel_g = ttk.Label(
             self.frame_header,
-            text=label_g,
-            width=self.geo[0] if label_g else 0,
             wraplength=self.geo[0],
             style="Path.TLabel",
             cursor="hand2",
@@ -275,6 +255,7 @@ class SavefileManager:
             backupFolder=self.bakDeleted,
             fileIco=self.fileIco,
             folderIco=self.folderIco,
+            save_callback=self.Save,
             selectmode="browse",
             height=17,
             show="tree",
@@ -286,6 +267,7 @@ class SavefileManager:
             subfolders=False,
             fileIco=self.fileIco,
             folderIco=self.folderIco,
+            save_callback=self.Save,
             selectmode="browse",
             height=6,
             show="tree",
@@ -341,32 +323,20 @@ class SavefileManager:
             + self.yscrollg.grid_info()["padx"],
         ).bind()
         # -------------------- END OF BODY FRAME --------------------
-        # Fill tree if there is an exisiting profile
-        # otherwise disable the buttons
-        if self.settings["CurrProfile"]:
-            # self.UpdateTree(init=True)
-            Thread(
-                target=self.treeview_g.Update,
-                kwargs={
-                    "init": True,
-                    "folderPath": self.settings["CurrProfile"][2],
-                    "extension": self.settings["CurrProfile"][3],
-                },
-            ).start()
-            self.fileCount = self.treeview_p.Update(
-                init=True,
-                folderPath=self.settings["CurrProfile"][1],
-                extension=self.settings["CurrProfile"][3],
-            )
-        else:
-            self.button_backup.state(["disabled"])
-            self.button_replace.state(["disabled"])
-        self.checker_id = root.after(1000, self.FileChecker)
         # Set theme
         if self.settings["Theme"]:
             self.currTheme.set(self.settings["Theme"])
         else:
             self.currTheme.set("Dark")
+        # Fill tree if there is an exisiting profile
+        # otherwise disable the buttons
+        if self.settings["CurrProfile"]:
+            self.DDL.set(self.settings["CurrProfile"][0])
+            self.DDL.event_generate("<<ComboboxSelected>>")
+        else:
+            self.button_backup.state(["disabled"])
+            self.button_replace.state(["disabled"])
+        self.checker_id = root.after(1000, self.FileChecker)
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # --------------------- END OF INIT ----------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -408,6 +378,49 @@ class SavefileManager:
         elif inTree_p and self.treeview_p.selection():
             self.treeMenu_p.post(event.x_root, event.y_root)
 
+    def UpdateMissingFolder(self):
+        logging.error("Game/Personal folder deleted")
+        messagebox.showerror(
+            "Missing Folder",
+            "Game/Personal folder has been deleted/changed please update it",
+        )
+
+        def ok_callback(edit: AddEditWindow):
+            prof = edit.entry_profile.get()
+            dir_p = edit.entry_p.get()
+            dir_g = edit.entry_g.get()
+            if not (Path(dir_g).exists() and Path(dir_p).exists()):
+                messagebox.showwarning(
+                    "Folder Doesn't Exist",
+                    "Chosen game/personal folder doesn't exist. Please change it.",
+                )
+                return
+            edit.profile_updated = True
+            self.settings["Profiles"][prof][1:3] = dir_p, dir_g
+            self.DDL.event_generate("<<ComboboxSelected>>")
+            edit.on_close()
+
+        editwin = AddEditWindow(
+            self._root, self.settings["CurrProfile"], ok_callback, "Update Folders"
+        )
+        editwin.button_profile.state(["disabled"])
+        editwin.button_extension.state(["disabled"])
+        editwin.entry_profile.state(["!readonly"])
+        editwin.entry_profile.insert(0, self.settings["CurrProfile"][0])
+        editwin.entry_profile.state(["readonly"])
+        editwin.entry_p.state(["!readonly"])
+        editwin.entry_p.insert(0, self.settings["CurrProfile"][1])
+        editwin.entry_p.state(["readonly"])
+        editwin.entry_g.state(["!readonly"])
+        editwin.entry_g.insert(0, self.settings["CurrProfile"][2])
+        editwin.entry_g.state(["readonly"])
+        editwin.entry_ext.state(["!readonly"])
+        editwin.entry_ext.insert(0, self.settings["CurrProfile"][3])
+        editwin.entry_ext.state(["readonly"])
+        editwin.wait_window()
+        if not editwin.profile_updated:
+            self.RemoveProfile(self.settings["CurrProfile"][0])
+
     def updateDDL(self, event: Event):
         """
         Updates treeviews and settings json
@@ -421,10 +434,14 @@ class SavefileManager:
                     else ""
                 )
             return
-        # Change current profile
+
         self.settings["CurrProfile"] = self.settings["Profiles"].get(self.DDL.get(), [])
-        # Change path labels
         if self.settings["CurrProfile"]:
+            perosnal_folder = Path(self.settings["CurrProfile"][1])
+            game_folder = Path(self.settings["CurrProfile"][2])
+            if not (game_folder.exists() and perosnal_folder.exists()):
+                self.UpdateMissingFolder()
+                return
             self.PathLabel_p.config(
                 text="Current personal directory: " + self.settings["CurrProfile"][1],
                 width=self.geo[0],
@@ -448,7 +465,6 @@ class SavefileManager:
             self.PathLabel_g.config(text="", width=0)
             self.fileCount = self.treeview_p.Update(init=True)
             self.treeview_g.Update(init=True)
-        self.Save()
 
     def AddProfile(self):
         """
@@ -496,6 +512,7 @@ class SavefileManager:
         addWin = AddEditWindow(
             self._root, self.settings["CurrProfile"], ok_callback, "Add Profile"
         )
+        addWin.wait_window()
         return addWin.profile_added
 
     def EditProfile(self):
@@ -553,19 +570,22 @@ class SavefileManager:
         editwin.entry_ext.insert(0, self.settings["CurrProfile"][3])
         editwin.entry_ext.state(["readonly"])
 
-    def RemoveProfile(self):
+    def RemoveProfile(self, to_remove: str = None):
         """
         Removes the currently selected profile
         then selects the next one in the list
         """
-        remove = messagebox.askyesno(
-            "Removing Profile", "Are you sure you want to remove the current profile?"
-        )
-        if not remove:
+        if not (
+            to_remove
+            or messagebox.askyesno(
+                "Removing Profile",
+                "Are you sure you want to remove the current profile?",
+            )
+        ):
             return
         try:
             # Remove profile from settings
-            self.settings["Profiles"].pop(self.DDL.get())
+            self.settings["Profiles"].pop(to_remove or self.DDL.get())
             if not self.settings["Profiles"]:
                 self.button_replace.state(["disabled"])
                 self.button_backup.state(["disabled"])
@@ -679,7 +699,7 @@ class SavefileManager:
                 dst = Path(self.settings["CurrProfile"][1]) if not toSub else dst
 
         if dst.is_file():
-            toSelect_p = selection_p[: -len(dst.name)]
+            toSelect_p = parent
             dst = dst.parent
         else:
             toSelect_p = selection_p
@@ -733,7 +753,6 @@ class SavefileManager:
             messagebox.showerror("COPY ERORR", "Couldn't copy the file. Check log file")
             return
         self.fileCount = self.treeview_p.Update(toSelect=toSelect_p)
-        self.Save()
 
     def Save(self):
         """Save all the settings to the settings file"""
@@ -770,6 +789,10 @@ class SavefileManager:
         # get last modified time of each folder
         path_p = Path(self.settings["CurrProfile"][1])
         path_g = Path(self.settings["CurrProfile"][2])
+        if not (path_g.exists() and path_p.exists()):
+            self.UpdateMissingFolder()
+            self.checker_id = self._root.after(1000, self.FileChecker)
+            return
         time_p = datetime.fromtimestamp(path_p.stat().st_mtime)
         time_g = datetime.fromtimestamp(path_g.stat().st_mtime)
 

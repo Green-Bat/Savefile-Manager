@@ -25,6 +25,7 @@ class AddEditWindow(Toplevel):
         self.wm_title(title)
 
         self.profile_added = False
+        self.profile_updated = False
         self.currProfile = currProfile
         # get coords and dimensions of root window
         coords = root.geometry().split("+")
@@ -60,30 +61,34 @@ class AddEditWindow(Toplevel):
         self.entry_ext = ttk.Entry(self, state="readonly", width=40)
         self.entry_ext.grid(row=7, column=0, columnspan=3, padx=5, pady=5, sticky="w")
 
-        ttk.Button(
+        self.button_profile = ttk.Button(
             self,
             text="Choose",
             style="Edit.TButton",
             command=lambda: self.Choose(0),
-        ).grid(row=1, column=3, padx=5, pady=5, sticky="e")
-        ttk.Button(
+        )
+        self.button_personal_folder = ttk.Button(
             self,
             text="Choose",
             style="Edit.TButton",
             command=lambda: self.Choose(1),
-        ).grid(row=3, column=3, padx=5, pady=5, sticky="e")
-        ttk.Button(
+        )
+        self.button_game_folder = ttk.Button(
             self,
             text="Choose",
             style="Edit.TButton",
             command=lambda: self.Choose(2),
-        ).grid(row=5, column=3, padx=5, pady=5, sticky="e")
-        ttk.Button(
+        )
+        self.button_extension = ttk.Button(
             self,
             text="Choose",
             style="Edit.TButton",
             command=lambda: self.Choose(3),
-        ).grid(row=7, column=3, padx=5, pady=5, sticky="e")
+        )
+        self.button_profile.grid(row=1, column=3, padx=5, pady=5, sticky="e")
+        self.button_personal_folder.grid(row=3, column=3, padx=5, pady=5, sticky="e")
+        self.button_game_folder.grid(row=5, column=3, padx=5, pady=5, sticky="e")
+        self.button_extension.grid(row=7, column=3, padx=5, pady=5, sticky="e")
 
         ttk.Button(
             self,
@@ -101,6 +106,7 @@ class AddEditWindow(Toplevel):
 
     def cancel(self):
         self.profile_added = False
+        self.profile_updated = False
         self.on_close()
 
     def Choose(self, index: int):
