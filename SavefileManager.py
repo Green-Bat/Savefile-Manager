@@ -21,15 +21,17 @@ import Helpers
 
 # TODO:
 # -[X] Fix crash when game/personal folder doesn't exist
-# -[] Rework saved files in settings file
+# -[-] Rework saved files in settings file
+# -[X] Notify for new version
 # -[] Center message boxes
-# -[] Auto-update
 # -[] Resizing
 # -[] Auto convert for arkham?
 # -[] Underline folder labels
 
 
 class SavefileManager:
+    VERSION = "v2.7"
+
     def __init__(self, root: Tk):
         self.fileCount = 0
         # load settings json
@@ -45,7 +47,7 @@ class SavefileManager:
 
         # if json file isn't there for wahtever reason
         # create a new one
-        self.settings = {
+        self.settings: dict = {
             "CurrFilesP": {},
             "CurrFilesG": {},
             "CurrProfile": [],
@@ -59,8 +61,8 @@ class SavefileManager:
         # log format
         fmt = "%(levelname)s %(asctime)s %(message)s"
         try:
-            with self.settingsPath.open("r") as f:
-                settings = json.load(f)
+            with self.settingsPath.open("r", encoding="utf-8") as f:
+                settings: dict = json.load(f)
             # initialize settings with default values if they are missing
             for key, val in self.settings.items():
                 if key not in settings:
@@ -104,7 +106,7 @@ class SavefileManager:
             logging.basicConfig(filename=self.logpath, level=logging.DEBUG, format=fmt)
             logging.error("Settings file missing/corrupt")
             try:
-                with self.settingsPath.open("w") as f:
+                with self.settingsPath.open("w", encoding="utf-8") as f:
                     json.dump(self.settings, f, indent=4)
                 logging.info("Settings file successfully generated")
             except OSError as e:
@@ -466,7 +468,7 @@ class SavefileManager:
             self.fileCount = self.treeview_p.Update(init=True)
             self.treeview_g.Update(init=True)
 
-    def AddProfile(self):
+    def AddProfile(self) -> bool:
         """
         Asks user to add a profile by asking for two directories,
         a personal one and the game's savefile folder,
@@ -613,18 +615,17 @@ class SavefileManager:
         Overwrites the selected game file
         with the selected personal file
         """
-        # Get selection from treeviews
         selection_p = self.treeview_p.selection()
         selection_g = self.treeview_g.selection()
-        # Make sure there is an actual selection
         if not (selection_p and selection_g):
             messagebox.showwarning(
                 "No selection",
                 "Please choose a file/folder to copy from the left list\nand a file/folder to overwrite from the right list",
             )
             return
-        src = Path(self.settings["CurrFilesP"][selection_p[0]])
-        dst = Path(self.settings["CurrFilesG"][selection_g[0]])
+        selection_p, selection_g = selection_p[0], selection_g[0]
+        src = Path(self.settings["CurrFilesP"][selection_p])
+        dst = Path(self.settings["CurrFilesG"][selection_g])
         if (src.is_file() and dst.is_dir()) or (src.is_dir() and dst.is_file()):
             messagebox.showwarning(
                 "Folder-to-File Warning",
@@ -662,8 +663,8 @@ class SavefileManager:
             self._root.after(250, self.button_replace.state, ["!disabled"])
 
         # blink the selected game file to inidicate successful replace
-        self.treeview_g.selection_remove(selection_g[0])
-        self._root.after(250, self.treeview_g.selection_set, selection_g[0])
+        self.treeview_g.selection_remove(selection_g)
+        self._root.after(250, self.treeview_g.selection_set, selection_g)
 
     def Backup(self):
         """
@@ -762,7 +763,7 @@ class SavefileManager:
         self.settings["Ycoord"] = int(coords[2])
         self.settings["Theme"] = self.currTheme.get()
         try:
-            with open(self.settingsPath, "w") as f:
+            with self.settingsPath.open("w", encoding="utf-8") as f:
                 json.dump(self.settings, f, indent=4)
             logging.info("Settings saved correctly")
         except OSError as e:
@@ -827,9 +828,35 @@ def main():
             None, "runas", sys.executable, " ".join(sys.argv), None, 1
         )
         sys.exit()
+
+    import requests, requests.exceptions, webbrowser
+    from packaging import version
+
+    latest_release = (
+        "https://api.github.com/repos/Green-Bat/Savefile-Manager/releases/latest"
+    )
+    releases_page = "https://github.com/Green-Bat/Savefile-Manager/releases"
     root = Tk()
     savefileManager = SavefileManager(root)
-    root.mainloop()
+    try:
+        response = requests.get(latest_release, timeout=5)
+        cur_version = response.json()["name"]
+        if version.parse(savefileManager.VERSION) < version.parse(cur_version):
+            if messagebox.askyesno(
+                "New Version Available",
+                "A new version of the Savefile Manager is available, would you like to download it?",
+            ):
+                webbrowser.open(releases_page)
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Failed to check for new version {e.strerror}")
+    except webbrowser.Error:
+        logging.error("Failed to open webpage")
+        messagebox.showerror(
+            "Failed",
+            f"Failed to open webpage. To download new version go to {releases_page}",
+        )
+    finally:
+        root.mainloop()
 
 
 if __name__ == "__main__":

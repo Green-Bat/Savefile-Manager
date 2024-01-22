@@ -23,12 +23,12 @@ class SFMTree(Treeview):
         *,
         currFiles: dict[str, str],
         backupFolder: Path,
+        fileIco: PhotoImage,
+        folderIco: PhotoImage,
         subfolders: bool = True,
-        fileIco: PhotoImage = None,
-        folderIco: PhotoImage = None,
         save_callback: Callable[["SavefileManager"], None],
         **kwargs,
-    ) -> None:
+    ):
         super().__init__(master, **kwargs)
         self.backupFolder = backupFolder
         self.currFiles = currFiles
@@ -85,7 +85,7 @@ class SFMTree(Treeview):
         if not init and isOpen:
             for toOpen in isOpen:
                 self.item(toOpen, open=True)
-        if toSelect and toSelect in self.currFiles:
+        if toSelect and self.exists(toSelect):
             self.selection_set(toSelect)
             self.see(toSelect)
         self.save()
@@ -146,8 +146,8 @@ class SFMTree(Treeview):
             return
         rename = Path(self.currFiles[selection])
         # If user didn't add extension add it only if selection is a file
-        if not newname.endswith(self.ext) and rename.is_file():
-            newname += self.ext
+        if not newname.endswith(rename.suffix) and rename.is_file():
+            newname += rename.suffix
         toSelect = self.parent(selection) + newname
         renamed = rename.parent / newname
         if renamed.exists():

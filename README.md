@@ -5,7 +5,8 @@ A program to help manage savefiles (backup/replace), originally made for the Bat
 
 ## Options
 - ### Add
-  - A popup window will appear asking you for the name of the profile, your own personal saves folder, and the game's saves folder
+  - A popup window will appear asking you for the name of the profile, your own personal saves folder, the game's saves folder, and the file extension for the game's save files.\
+    If dealing with folders, or files with no extension, use a '*' for the extension choice.
 
   - When choosing the GAME'S savefiles folder, if you're not sure where this is, check PCGamingWiki: http://pcgamingwiki.com/
 
@@ -28,9 +29,15 @@ A program to help manage savefiles (backup/replace), originally made for the Bat
     The Replace Button:\
     You choose a file/folder from your personal files list (on the left) and a 
     file/folder from the game files list (on the right) and then click the button. It will overwrite* 
-    the game's file/folder.
+    the game's file/folder.\
+    A backup of the replaced file will be created in the config folder under /backups.
 
-
+---
+## Context Menu
+- ## Rename
+    Allows you to rename files/folders
+- ## Delete
+    Delete a file/folder, the program will creat a backup copy of any deleted file/folder under in the config folder under /backups/Deleted
 ---
 
 *Specifically for Batman: Arkham Knight it will also overwrite any of the game's backup savefiles 

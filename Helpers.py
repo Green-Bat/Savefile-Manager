@@ -1,11 +1,11 @@
 from pathlib import Path
 import shutil
 from datetime import datetime
-from collections import defaultdict
+from collections import Counter
 
 
 def GetExt(p: Path | str) -> str:
-    """Gets the most common extension in a given directory"""
+    """Gets the most common file extension in a given directory"""
     if isinstance(p, str):
         p = Path(p)
         if not p.exists():
@@ -13,12 +13,7 @@ def GetExt(p: Path | str) -> str:
     # if a file is given return its extension
     if p.is_file():
         return p.suffix
-
-    exts = defaultdict(int)
-    for file in p.iterdir():
-        if file.is_file():
-            exts[file.suffix] += 1
-
+    exts = Counter(f.suffix for f in p.iterdir() if f.is_file())
     return max(exts, key=exts.get) if exts else ""
 
 
