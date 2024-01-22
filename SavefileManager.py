@@ -35,7 +35,7 @@ class SavefileManager:
     def __init__(self, root: Tk):
         self.fileCount = 0
         # load settings json
-        self.configPath = Path(__file__).parent.resolve() / "config"
+        self.configPath = Path().resolve() / "config"
         self.settingsPath = self.configPath / "settings.json"
         self.logpath = self.configPath / "log.log"
         self.bak = self.configPath / "backups"
