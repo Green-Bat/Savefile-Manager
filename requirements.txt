@@ -1,4 +1,4 @@
-pillow==10.2.0
+pillow==10.3.0
 natsort==8.4.0
 requests==2.31.0
 packaging==23.2

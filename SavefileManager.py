@@ -20,9 +20,8 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
-# -[X] Fix crash when game/personal folder doesn't exist
-# -[-] Rework saved files in settings file
-# -[X] Notify for new version
+# -[] Add label to ddl
+# -[] rewrite logging
 # -[] Center message boxes
 # -[] Resizing
 # -[] Auto convert for arkham?
@@ -30,12 +29,12 @@ import Helpers
 
 
 class SavefileManager:
-    VERSION = "v2.7"
+    VERSION = "v2.8"
 
     def __init__(self, root: Tk):
         self.fileCount = 0
         # load settings json
-        self.configPath = Path().resolve() / "config"
+        self.configPath = Path(__file__).parent.resolve() / "config"
         self.settingsPath = self.configPath / "settings.json"
         self.logpath = self.configPath / "log.log"
         self.bak = self.configPath / "backups"
@@ -102,9 +101,9 @@ class SavefileManager:
 
                 Thread(target=CleanBackups).start()
             logging.info("Settings file successfully loaded")
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFoundError, json.JSONDecodeError) as e:
             logging.basicConfig(filename=self.logpath, level=logging.DEBUG, format=fmt)
-            logging.error("Settings file missing/corrupt")
+            logging.error(f"Settings file missing/corrupt ({e.strerror})")
             try:
                 with self.settingsPath.open("w", encoding="utf-8") as f:
                     json.dump(self.settings, f, indent=4)
@@ -190,13 +189,13 @@ class SavefileManager:
             ),
         )
 
-        # DropDownList
         ttk.Label(
             self.frame_header,
-            text="Savefile Manager",
+            text=f"Savefile Manager {self.VERSION}",
             font=("Arial", 12, "bold"),
         ).grid(row=0, column=0, sticky="ew")
 
+        # DropDownList
         self.ddlOpt = natsorted(self.settings["Profiles"].keys())
         self.ddlOpt.append("Add...")
         self.DDL = ttk.Combobox(
@@ -306,10 +305,16 @@ class SavefileManager:
             label="Rename", command=lambda: self.treeview_g.RenameFile(warn=True)
         )
         self.treeMenu_g.add_command(label="Delete", command=self.treeview_g.DeleteFile)
+        self.treeMenu_g.add_command(
+            label="Create Folder", command=self.treeview_g.CreateFolder
+        )
 
         self.treeMenu_p = Menu()
         self.treeMenu_p.add_command(label="Rename", command=self.treeview_p.RenameFile)
         self.treeMenu_p.add_command(label="Delete", command=self.treeview_p.DeleteFile)
+        self.treeMenu_p.add_command(
+            label="Create Folder", command=self.treeview_p.CreateFolder
+        )
         self.treeview_g.bind("<Button-3>", self.TreeviewMenu)
         self.treeview_p.bind("<Button-3>", self.TreeviewMenu)
         TVToolTip(
@@ -369,15 +374,35 @@ class SavefileManager:
             and event.y_root > bounds_p[2]
             and event.y_root < bounds_p[3]
         )
-        self.treeview_g.selection_set(
-            self.treeview_g.identify("item", event.x, event.y)
-        ) if inTree_g else ""
-        self.treeview_p.selection_set(
-            self.treeview_p.identify("item", event.x, event.y)
-        ) if inTree_p else ""
-        if inTree_g and self.treeview_g.selection():
+        (
+            self.treeview_g.selection_set(
+                self.treeview_g.identify("item", event.x, event.y)
+            )
+            if inTree_g
+            else ""
+        )
+        (
+            self.treeview_p.selection_set(
+                self.treeview_p.identify("item", event.x, event.y)
+            )
+            if inTree_p
+            else ""
+        )
+        if inTree_g:
+            if not self.treeview_g.selection():
+                self.treeMenu_g.entryconfig("Rename", state="disabled")
+                self.treeMenu_g.entryconfig("Delete", state="disabled")
+            else:
+                self.treeMenu_g.entryconfig("Rename", state="normal")
+                self.treeMenu_g.entryconfig("Delete", state="normal")
             self.treeMenu_g.post(event.x_root, event.y_root)
-        elif inTree_p and self.treeview_p.selection():
+        elif inTree_p:
+            if not self.treeview_p.selection():
+                self.treeMenu_p.entryconfig("Rename", state="disabled")
+                self.treeMenu_p.entryconfig("Delete", state="disabled")
+            else:
+                self.treeMenu_p.entryconfig("Rename", state="normal")
+                self.treeMenu_p.entryconfig("Delete", state="normal")
             self.treeMenu_p.post(event.x_root, event.y_root)
 
     def UpdateMissingFolder(self):
@@ -462,6 +487,9 @@ class SavefileManager:
                 folderPath=self.settings["CurrProfile"][2],
                 extension=self.settings["CurrProfile"][3],
             )
+            logging.info(
+                f"Profile loaded successfully ({self.settings["CurrProfile"][0]})"
+            )
         else:
             self.PathLabel_p.config(text="", width=0)
             self.PathLabel_g.config(text="", width=0)
@@ -515,6 +543,7 @@ class SavefileManager:
             self._root, self.settings["CurrProfile"], ok_callback, "Add Profile"
         )
         addWin.wait_window()
+        logging.info(f"New profile added ({self.settings['CurrProfile'][0]})")
         return addWin.profile_added
 
     def EditProfile(self):
@@ -571,6 +600,7 @@ class SavefileManager:
         editwin.entry_ext.state(["!readonly"])
         editwin.entry_ext.insert(0, self.settings["CurrProfile"][3])
         editwin.entry_ext.state(["readonly"])
+        logging.info(f"Profile updated ({self.settings['CurrProfile'][0]})")
 
     def RemoveProfile(self, to_remove: str = None):
         """
@@ -609,6 +639,7 @@ class SavefileManager:
             self.settings["ProfileCount"] = len(self.settings["Profiles"])
             # generate an event to update the current profile and treeviews
             self.DDL.event_generate("<<ComboboxSelected>>")
+        logging.info(f"Profile deleted ({to_remove})")
 
     def Replace(self):
         """

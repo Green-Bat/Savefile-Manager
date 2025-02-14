@@ -36,6 +36,7 @@ class SFMTree(Treeview):
         self.fileIco = fileIco
         self.folderIco = folderIco
         self.save = save_callback
+        self.mainFolder: str = None
 
     def Update(
         self,
@@ -211,3 +212,30 @@ class SFMTree(Treeview):
         self.currFiles.pop(selection)
         self.delete(selection)
         self.save()
+
+    def CreateFolder(self) -> None:
+        while True:
+            foldername = askstring(
+                "New Folder Name",
+                "Enter the name of the folder",
+                parent=self.master.master,
+            )
+            if not foldername:
+                return
+            toSelect = foldername
+            parent_folder = Path(self.mainFolder)
+            if self.selection():
+                selection = self.selection()[0]
+                parent_id = self.parent(selection)
+                toSelect = parent_id + foldername
+                if parent_id:
+                    parent_folder = Path(self.currFiles[parent_id])
+            newFolder = parent_folder / foldername
+            if newFolder.exists():
+                messagebox.showwarning(
+                    "Already exists", "Folder already exists choose a different name"
+                )
+            else:
+                break
+        newFolder.mkdir()
+        self.Update(toSelect=toSelect)
