@@ -20,10 +20,10 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
-# -[] Add label to ddl
+# -[x] Add label to ddl
 # -[] rewrite logging
-# -[] Center message boxes
 # -[] Resizing
+# -[] Center message boxes
 # -[] Auto convert for arkham?
 # -[] Underline folder labels
 
@@ -196,6 +196,9 @@ class SavefileManager:
         ).grid(row=0, column=0, sticky="ew")
 
         # DropDownList
+        ttk.Label(self.frame_header, text="Saved Profiles:", font=("Arial", 9)).grid(
+            row=0, column=1, sticky="w", pady=5, padx=5
+        )
         self.ddlOpt = natsorted(self.settings["Profiles"].keys())
         self.ddlOpt.append("Add...")
         self.DDL = ttk.Combobox(
