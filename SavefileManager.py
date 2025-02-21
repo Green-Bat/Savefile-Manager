@@ -196,9 +196,14 @@ class SavefileManager:
         ).grid(row=0, column=0, sticky="ew")
 
         # DropDownList
-        ttk.Label(self.frame_header, text="Saved Profiles:", font=("Arial", 9)).grid(
-            row=0, column=1, sticky="w", pady=5, padx=5
-        )
+        ttk.Label(
+            self.frame_header,
+            text="Profiles: ",
+            font=("Arial", 9),
+            width=20,
+            padding=(0, 0, 0, 20),
+            justify="center",
+        ).grid(row=0, column=1, sticky="es", pady=7)
         self.ddlOpt = natsorted(self.settings["Profiles"].keys())
         self.ddlOpt.append("Add...")
         self.DDL = ttk.Combobox(
@@ -210,7 +215,7 @@ class SavefileManager:
         self.DDL.state(["readonly"])
         self.DDL.bind("<<ComboboxSelected>>", self.updateDDL)
         self.DDL.bind("<<FocusOut>>", lambda e: self.DDL.selection_clear(0, END))
-        self.DDL.grid(row=0, column=1, sticky="e", padx=5, pady=2)
+        self.DDL.grid(row=0, column=1, sticky="es", padx=5, pady=2)
 
         # Path Labels
         self.PathLabel_p = ttk.Label(
