@@ -33,7 +33,6 @@ class SavefileManager:
 
     def __init__(self, root: Tk):
         self.fileCount = 0
-        root.report_callback_exception = self.ExceptionHandler
         # load settings json
         self.configPath = Path().resolve() / "config"
         self.settingsPath = self.configPath / "settings.json"
@@ -358,15 +357,6 @@ class SavefileManager:
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # --------------------- END OF INIT ----------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-    def ExceptionHandler(self, exc_type, exc_value, exc_traceback):
-        logging.critical(
-            "Unexpected error", exc_info=(exc_type, exc_value, exc_traceback)
-        )
-        messagebox.showerror(
-            "CRITICAL ERROR", "Unexpected error, check log file for more info"
-        )
-        self._root.destroy()
 
     def TreeviewMenu(self, event: Event):
         """Context menu for treeview"""
@@ -915,4 +905,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logging.critical("Unexpected error", exc_info=e)
+        messagebox.showerror(
+            "CRITICAL ERROR", "Unexpected error, check log file for more info"
+        )
