@@ -227,8 +227,14 @@ class SFMTree(Treeview):
             if self.selection():
                 selection = self.selection()[0]
                 parent_id = self.parent(selection)
-                toSelect = parent_id + foldername
-                if parent_id:
+                selection_path = Path(self.currFiles[selection])
+                # if selection is a folder, new folder is created in it
+                # if selection is a file, new folder is created in the folder it's in
+                if selection_path.is_dir():
+                    toSelect = selection + foldername
+                    parent_folder = selection_path
+                elif parent_id:
+                    toSelect = parent_id + foldername
                     parent_folder = Path(self.currFiles[parent_id])
             newFolder = parent_folder / foldername
             if newFolder.exists():

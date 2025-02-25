@@ -33,8 +33,9 @@ class SavefileManager:
 
     def __init__(self, root: Tk):
         self.fileCount = 0
+        root.report_callback_exception = self.ExceptionHandler
         # load settings json
-        self.configPath = Path(__file__).parent.resolve() / "config"
+        self.configPath = Path().resolve() / "config"
         self.settingsPath = self.configPath / "settings.json"
         self.logpath = self.configPath / "log.log"
         self.bak = self.configPath / "backups"
@@ -103,7 +104,7 @@ class SavefileManager:
             logging.info("Settings file successfully loaded")
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logging.basicConfig(filename=self.logpath, level=logging.DEBUG, format=fmt)
-            logging.error(f"Settings file missing/corrupt ({e.strerror})")
+            logging.error(f"Settings file missing/corrupt ({e.msg})")
             try:
                 with self.settingsPath.open("w", encoding="utf-8") as f:
                     json.dump(self.settings, f, indent=4)
@@ -305,7 +306,9 @@ class SavefileManager:
         self.button_replace.grid(row=0, column=0, sticky="ns", pady=5)
         self.button_backup.grid(row=1, column=0, sticky="ns", pady=5)
         # ------------- END OF BUTTON SUB-FRAME -------------
-        self.treeview_p.grid(row=0, rowspan=2, column=0, sticky="w", padx=5, pady=5)
+        self.treeview_p.grid(
+            row=0, rowspan=2, column=0, sticky="wns", padx=5, pady=5, ipady=5
+        )
         self.treeview_g.grid(row=0, rowspan=1, column=2, sticky="nse", padx=5, pady=5)
 
         self.treeMenu_g = Menu()
@@ -355,6 +358,15 @@ class SavefileManager:
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # --------------------- END OF INIT ----------------------
         # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    def ExceptionHandler(self, exc_type, exc_value, exc_traceback):
+        logging.critical(
+            "Unexpected error", exc_info=(exc_type, exc_value, exc_traceback)
+        )
+        messagebox.showerror(
+            "CRITICAL ERROR", "Unexpected error, check log file for more info"
+        )
+        self._root.destroy()
 
     def TreeviewMenu(self, event: Event):
         """Context menu for treeview"""
@@ -838,18 +850,22 @@ class SavefileManager:
 
         # if last modified time is greater than one second update the treeview
         if now - time_p > timedelta(seconds=1) and now - time_p < timedelta(seconds=3):
+            logging.info("Personal folder updated/modified")
             self.fileCount = self.treeview_p.Update(toSelect=toSelect_p)
         if now - time_g > timedelta(seconds=1) and now - time_g < timedelta(seconds=3):
+            logging.info("Game folder updated/modified")
             self.treeview_g.Update(toSelect=toSelect_g)
 
         # check all subfolders recursively
-        for file in path_p.rglob("*"):
-            time = datetime.fromtimestamp(file.stat().st_mtime)
+        for folder in (f for f in path_p.rglob("*") if f.is_dir()):
+            time = datetime.fromtimestamp(folder.stat().st_mtime)
             if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=3):
+                logging.info(f"Personal Sub-folder updated/modified ({str(folder)})")
                 self.fileCount = self.treeview_p.Update(toSelect=toSelect_p)
-        for file in path_g.rglob("*"):
-            time = datetime.fromtimestamp(file.stat().st_mtime)
+        for folder in (f for f in path_g.rglob("*") if f.is_dir()):
+            time = datetime.fromtimestamp(folder.stat().st_mtime)
             if now - time > timedelta(seconds=1) and now - time < timedelta(seconds=3):
+                logging.info(f"Game Sub-folder updated/modified ({str(folder)})")
                 self.treeview_g.Update(toSelect=toSelect_g)
 
         self.checker_id = self._root.after(1000, self.FileChecker)
