@@ -20,7 +20,6 @@ from TreeviewToolTip import TVToolTip
 import Helpers
 
 # TODO:
-# -[x] Add label to ddl
 # -[] rewrite logging
 # -[] Resizing
 # -[] Center message boxes
@@ -29,7 +28,7 @@ import Helpers
 
 
 class SavefileManager:
-    VERSION = "v2.8"
+    VERSION = "v2.8.1"
 
     def __init__(self, root: Tk):
         self.fileCount = 0
