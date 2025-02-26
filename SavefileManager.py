@@ -103,7 +103,7 @@ class SavefileManager:
             logging.info("Settings file successfully loaded")
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logging.basicConfig(filename=self.logpath, level=logging.DEBUG, format=fmt)
-            logging.error(f"Settings file missing/corrupt ({e.msg})")
+            logging.error(f"Settings file missing/corrupt")
             try:
                 with self.settingsPath.open("w", encoding="utf-8") as f:
                     json.dump(self.settings, f, indent=4)
